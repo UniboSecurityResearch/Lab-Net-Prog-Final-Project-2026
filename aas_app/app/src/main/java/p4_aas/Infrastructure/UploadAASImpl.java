@@ -19,6 +19,7 @@ import org.eclipse.basyx.aas.metamodel.map.descriptor.AASDescriptor;
 import org.eclipse.basyx.aas.metamodel.map.descriptor.SubmodelDescriptor;
 import org.eclipse.basyx.aas.registration.proxy.AASRegistryProxy;
 import org.eclipse.basyx.submodel.metamodel.map.Submodel;
+import p4_aas.StaticProperties;
 
 import java.util.List;
 
@@ -44,6 +45,6 @@ public class UploadAASImpl implements UploadAAS {
     }
 
     private String generateAASIP(Integer port) {
-        return String.format("http://localhost:%d/aas", port);
+        return String.format("http://%s:%d/aas", StaticProperties.AAS_PUBLIC_HOST, port);
     }
 }

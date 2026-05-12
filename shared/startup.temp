@@ -22,6 +22,7 @@ modbusserver
 modbusclient 
 s2 
 s1 
+<<<<<<< HEAD
 modbusclient 
 modbusserver 
 s1 
@@ -34,6 +35,8 @@ modbusclient
 modbusserver 
 s1 
 s2 
+=======
+>>>>>>> af6ebc7ec7b500d9be5ddd9ae5526cf67dd6ced7
 modbusserver 
 modbusclient 
 s1 
@@ -42,3 +45,10 @@ modbusclient
 modbusserver 
 s1 
 s2 
+<<<<<<< HEAD
+=======
+modbusclient 
+modbusserver 
+s2 
+s1 
+>>>>>>> af6ebc7ec7b500d9be5ddd9ae5526cf67dd6ced7

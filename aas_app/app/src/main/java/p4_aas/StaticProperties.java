@@ -20,7 +20,8 @@ package p4_aas;
 public class StaticProperties {
     public static final String REGISTRY_POLLING_IP = "http://100.0.2.1:4000/registry/api/v1/registry";
     public static final String REGISTRYPATH = "http://100.0.2.1:4000/registry/";
-
+    public static final String AAS_PUBLIC_HOST = System.getenv().getOrDefault("AAS_PUBLIC_HOST", "10.0.2.15");
+    
     public static final String SW1_MANAGEMENT_IP = "100.0.1.11";
     public static final String SW2_MANAGEMENT_IP = "100.0.1.12";
 

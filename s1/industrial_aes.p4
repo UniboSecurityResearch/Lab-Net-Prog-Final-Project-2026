@@ -10,6 +10,14 @@
 *************************************************************************/
 const bit<16> TYPE_IPV4 = 0x800;
 const bit<16> IPV4_LEN = 16w20;
+const bit<32> MIRROR_SESSION_ID = 32w100;
+const bit<8> MODBUS_FC_READ_COILS = 8w1;
+const bit<8> MODBUS_FC_READ_DISCRETE_INPUTS = 8w2;
+const bit<8> MODBUS_FC_EXCEPTION_READ_COILS = 8w129;
+const bit<8> MODBUS_FC_EXCEPTION_READ_DISCRETE_INPUTS = 8w130;
+const bit<9> S1_INTER_SWITCH_PORT = 9w2;
+const bit<8> MIRROR_FIELD_LIST = 8w0;
+
 
 typedef bit<9>  egressSpec_t;
 typedef bit<48> macAddr_t;
@@ -105,6 +113,7 @@ struct tcp_metadata_t
 struct metadata {
     tcp_metadata_t tcp_metadata;
     bit<1> isSec;
+    bit<8> modbus_function_code;
 }
 
 struct headers {
@@ -132,6 +141,7 @@ parser MyParser(packet_in packet,
 
     state start {
         meta.isSec = 0;
+        meta.modbus_function_code = 0;
        transition parse_ethernet;
     }
 
@@ -209,7 +219,8 @@ parser MyParser(packet_in packet,
 
     state parse_payload_modbus {
         bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7) * 8);
-        packet.extract(hdr.payload, (bit<32>)(calculated_length));
+        meta.modbus_function_code = packet.lookahead<bit<8>>();
+	packet.extract(hdr.payload, (bit<32>)(calculated_length));
         transition accept;
     }
 }
@@ -231,7 +242,7 @@ control MyIngress(inout headers hdr,
                   inout standard_metadata_t standard_metadata) {
 
    register<bit<32>>(8) keys;
-
+   register<bit<32>>(1) mirrored_packet_count;
     action drop() {
         mark_to_drop(standard_metadata);
     }
@@ -303,10 +314,18 @@ control MyIngress(inout headers hdr,
         bit<16> crypt_payload_length = ((useful_length_fixed / 16) + 1) * 16;
         hdr.ipv4.totalLen = hdr.ipv4.totalLen - crypt_payload_length + useful_length_fixed - 36;
         verify_hash_equals(hdr.temp.equals, hdr.ipv4_options.sha, hdr.temp.shaCalculated);
-        hdr.temp.setInvalid();
+        meta.modbus_function_code = hdr.payload_decrypt.content[2047:2040];
+       	hdr.temp.setInvalid();
         hdr.payload.setInvalid();
         hdr.ipv4_options.setInvalid();
     }
+    action mirror_to_observer() {
+        bit<32> count;
+        mirrored_packet_count.read(count, 0);
+        mirrored_packet_count.write(0, count + 1);
+        clone_preserving_field_list(CloneType.I2E, MIRROR_SESSION_ID, MIRROR_FIELD_LIST);
+    }
+
 
     table modbus_sec {
         key = {
@@ -326,7 +345,23 @@ control MyIngress(inout headers hdr,
             ipv4_lpm.apply();
             if (hdr.tcp.isValid()){
                 if (hdr.modbus_tcp.isValid()){
+                    if (standard_metadata.egress_spec == S1_INTER_SWITCH_PORT) {
+                        if (meta.modbus_function_code == MODBUS_FC_READ_COILS ||
+                            meta.modbus_function_code == MODBUS_FC_READ_DISCRETE_INPUTS ||
+                            meta.modbus_function_code == MODBUS_FC_EXCEPTION_READ_COILS ||
+                            meta.modbus_function_code == MODBUS_FC_EXCEPTION_READ_DISCRETE_INPUTS) {
+                            mirror_to_observer();
+                        }
+                    }
                     modbus_sec.apply();
+                    if (standard_metadata.egress_spec != S1_INTER_SWITCH_PORT) {
+                        if (meta.modbus_function_code == MODBUS_FC_READ_COILS ||
+                            meta.modbus_function_code == MODBUS_FC_READ_DISCRETE_INPUTS ||
+                            meta.modbus_function_code == MODBUS_FC_EXCEPTION_READ_COILS ||
+                            meta.modbus_function_code == MODBUS_FC_EXCEPTION_READ_DISCRETE_INPUTS) {
+                            mirror_to_observer();
+                        }
+                    }
                 }
             }
         }
@@ -356,7 +391,8 @@ control MyEgress(inout headers hdr,
 
         diff_time = standard_metadata.ingress_global_timestamp - last_time;
 
-        if(meta.isSec == 1){
+        if(meta.isSec == 1 && standard_metadata.instance_type == 0){
+
             //retrieve index
             last_saved_index.read(current_index,     0);
 

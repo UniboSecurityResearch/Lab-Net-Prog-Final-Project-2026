@@ -823,6 +823,7 @@ void verify_hash_equals(bm::Data & equals, bm::Data & hash1, bm::Data & hash2) {
     equals.set(diff == 0x00);
 }
 
+
 void Encrypt(bm::Data & a, bm::Data & b, bm::Data & k1, bm::Data & k2, bm::Data & k3, bm::Data & k4, bm::Data & k5, bm::Data & k6, bm::Data & k7, bm::Data & k8, bm::Data & len, bm::Data & seqNo) {
     load_aes_key_material(k1, k2, k3, k4, k5, k6, k7, k8);
     KeyExpansion();

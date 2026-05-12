@@ -21,6 +21,7 @@ import p4_aas.StaticProperties;
 import p4_aas.Submodels.AbstractSubmodel;
 
 import java.util.List;
+import java.util.ArrayList;
 
 public class NetworkInfrastructureSubmodel extends AbstractSubmodel {
 
@@ -30,6 +31,7 @@ public class NetworkInfrastructureSubmodel extends AbstractSubmodel {
 
     @Override
     public List<Submodel> createSubmodel() {
+
         Submodel topology = new Submodel();
         topology.setIdShort("NetworkTopology");
 
@@ -42,6 +44,17 @@ public class NetworkInfrastructureSubmodel extends AbstractSubmodel {
         topology.addSubmodelElement(new Property("ModbusPort", StaticProperties.MODBUS_PORT));
         topology.addSubmodelElement(new Property("AASNetworks", "L=100.0.2.4, D=100.0.1.5, A=195.11.14.100, C=200.1.1.100"));
 
-		return List.of(topology);
+        Submodel observer = new Submodel();
+        observer.setIdShort("ObserverSubmodel");
+
+        observer.addSubmodelElement(new Property("Counter", "test"));
+
+        List<Submodel> list = new ArrayList<>();
+        list.add(topology);
+        list.add(observer);
+
+		return list;
     }
+
+
 }

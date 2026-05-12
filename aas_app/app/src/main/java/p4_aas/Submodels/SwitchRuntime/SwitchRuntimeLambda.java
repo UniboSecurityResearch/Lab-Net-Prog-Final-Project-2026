@@ -64,4 +64,23 @@ public class SwitchRuntimeLambda {
         }
         return Integer.parseInt(String.valueOf(value));
     }
+
+    public Function<Map<String, SubmodelElement>, SubmodelElement[]> enableEncryptionRule() {
+        return (args) -> {
+            Integer functionCode = getInt(args, "FunctionCode");
+            if (functionCode == null || functionCode < 1 || functionCode > 6) {
+                return output("Error: Function Code must be an integer between 1 and 6.");
+            }
+
+            String command = "table_add modbus_sec cipher " + functionCode + " =>";
+        
+            String outputS1 = switchCliClient.runCliCommand(1, command);
+            String outputS2 = switchCliClient.runCliCommand(2, command);
+            
+            if (outputS1.contains("Error") || outputS2.contains("Error")) {
+                return output("Failed to apply rule to data plane.");
+            }
+            return output("Encrypted tunnel enabled for Function Code: " + functionCode);
+        };
+    }
 }

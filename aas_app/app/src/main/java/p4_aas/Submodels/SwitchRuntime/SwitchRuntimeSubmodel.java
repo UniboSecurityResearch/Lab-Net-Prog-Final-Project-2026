@@ -59,4 +59,16 @@ public class SwitchRuntimeSubmodel extends AbstractSubmodel {
         readRegister.setWrappedInvokable(lambdaProvider.readRegister());
         return readRegister;
     }
+
+    private Operation readFunctionCode() {
+        Operation readFunctionCode = new Operation("ReadFunctionCode");
+        Map<String, ValueType> inputVariables = new LinkedHashMap<>();
+        inputVariables.put("FunctionCode", ValueType.String);
+
+        readFunctionCode.setInputVariables(getUtils().getCustomInputVariables(inputVariables));
+        readFunctionCode.setOutputVariables(getUtils().getOperationVariables(1, "Output"));
+        
+        readFunctionCode.setWrappedInvokable(lambdaProvider.enableEncryptionRule());
+        return readFunctionCode;
+    }
 }

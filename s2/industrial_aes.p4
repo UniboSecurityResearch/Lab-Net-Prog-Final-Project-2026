@@ -107,6 +107,10 @@ struct metadata {
     bit<1> isSec;
 }
 
+header modbus_pdu_t {
+    bit<8> function_code;
+}
+
 struct headers {
     ethernet_t ethernet;
     ipv4_t ipv4;
@@ -114,6 +118,7 @@ struct headers {
     tcp_t tcp;
     tcp_options_t tcp_options;
     modbus_tcp_t modbus_tcp;
+    modbus_pdu_t modbus_pdu;
     payload_t payload;
     payload_encrypt_t payload_encrypt;
     payload_decrypt_t payload_decrypt;
@@ -201,6 +206,7 @@ parser MyParser(packet_in packet,
     state extract_modbus_tcp {
         packet.extract(hdr.tcp_options);
         packet.extract(hdr.modbus_tcp);
+        packet.extract(hdr.modbus_pdu);
         transition select(hdr.modbus_tcp.length) {
            1: accept;
            _: parse_payload_modbus;
@@ -208,7 +214,7 @@ parser MyParser(packet_in packet,
     }
 
     state parse_payload_modbus {
-        bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7) * 8);
+        bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 8) * 8);
         packet.extract(hdr.payload, (bit<32>)(calculated_length));
         transition accept;
     }
@@ -310,14 +316,14 @@ control MyIngress(inout headers hdr,
 
     table modbus_sec {
         key = {
-            standard_metadata.egress_spec: exact;
+            hdr.modbus_pdu.function_code: exact;
         }
         actions = {
             no_cipher;
             cipher;
             decipher;
         }
-        size = 2;
+        size = 10;
         default_action = no_cipher();
     }
 
@@ -413,6 +419,7 @@ control MyDeparser(packet_out packet, in headers hdr) {
         packet.emit(hdr.tcp);
         packet.emit(hdr.tcp_options);
         packet.emit(hdr.modbus_tcp);
+        packet.emit(hdr.modbus_pdu);
         packet.emit(hdr.payload_encrypt);
         packet.emit(hdr.payload_decrypt);
         packet.emit(hdr.payload);

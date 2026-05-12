@@ -77,6 +77,7 @@ header modbus_tcp_t {
     bit<16> protocolId;
     bit<16> length;
     bit<8> unitId;
+    bit<8> functionCode;
 }
 
 header payload_t {

@@ -105,6 +105,7 @@ struct tcp_metadata_t
 struct metadata {
     tcp_metadata_t tcp_metadata;
     bit<1> isSec;
+    bit<8> modbus_fc;
 }
 
 struct headers {
@@ -208,6 +209,8 @@ parser MyParser(packet_in packet,
     }
 
     state parse_payload_modbus {
+        meta.modbus_fc = packet.lookahead<bit<8>>();
+
         bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7) * 8);
         packet.extract(hdr.payload, (bit<32>)(calculated_length));
         transition accept;
@@ -231,6 +234,7 @@ control MyIngress(inout headers hdr,
                   inout standard_metadata_t standard_metadata) {
 
    register<bit<32>>(8) keys;
+   register<bit<32>>(7) fc_counters;
 
     action drop() {
         mark_to_drop(standard_metadata);
@@ -322,6 +326,13 @@ control MyIngress(inout headers hdr,
     }
 
     apply {
+        if (hdr.modbus_tcp.isValid()) {
+            if (meta.modbus_fc >= 1 && meta.modbus_fc <= 6) {
+                bit<32> current_count;
+                fc_counters.read(current_count, (bit<32>)meta.modbus_fc);
+                fc_counters.write((bit<32>)meta.modbus_fc, current_count + 1);
+            }
+        }
         if (hdr.ipv4.isValid()){
             ipv4_lpm.apply();
             if (hdr.tcp.isValid()){

@@ -27,7 +27,13 @@ public class TrafficMonitorLambda {
             String raw = switchCliClient.runCliCommand(1, "register_read fc_counters " + fc);
             int count = parseRegisterValue(raw);
             if (count < threshold) {
-                return output("Threshold not met.RAW = " + raw + "Count=" + count + ", threshold=" + threshold);
+                try {
+                  switchCliClient.runCliCommand(1, "table_clear modbus_sec");
+                  switchCliClient.runCliCommand(2, "table_clear modbus_sec");
+                } catch (Exception e){
+                    return output("OK. Threshold not met. threshold=" + threshold);
+                }
+                return output("OK. Threshold not met. threshold=" + threshold);
             }
 
             switchCliClient.runCliCommand(1, "table_add modbus_sec decipher 1 =>");

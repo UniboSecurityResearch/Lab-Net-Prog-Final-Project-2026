@@ -350,8 +350,12 @@ control MyEgress(inout headers hdr,
     bit<48> last_time;
     bit<32> current_index;
 
+    register<bit<16>>(6) function_code_counters;
 
     apply {
+
+        function_code_counters.write(1,10);
+
         timestamp_last_seen_packet.read(last_time,     0);
 
         diff_time = standard_metadata.ingress_global_timestamp - last_time;

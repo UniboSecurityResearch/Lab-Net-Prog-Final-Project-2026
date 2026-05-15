@@ -77,20 +77,8 @@ header modbus_tcp_t {
     bit<16> protocolId;
     bit<16> length;
     bit<8> unitId;
+    bit<8> functionCode;
 }
-
-header payload_t {
-   varbit<2048> content;
-}
-
-header payload_encrypt_t {
-   bit<2048> content;
-}
-
-header payload_decrypt_t {
-   bit<2048> content;
-}
-//the size of fields payload_decrypt_t and payload_encrypt_t must be set in definition.cpp (max_size_content) divided by 8
 
 struct tcp_metadata_t
 {
@@ -105,6 +93,7 @@ struct tcp_metadata_t
 struct metadata {
     tcp_metadata_t tcp_metadata;
     bit<1> isSec;
+    bit<32> current_count;
 }
 
 struct headers {
@@ -114,9 +103,6 @@ struct headers {
     tcp_t tcp;
     tcp_options_t tcp_options;
     modbus_tcp_t modbus_tcp;
-    payload_t payload;
-    payload_encrypt_t payload_encrypt;
-    payload_decrypt_t payload_decrypt;
     sha_temp_store_t temp;
 } //modify payload for modbus
 
@@ -201,15 +187,6 @@ parser MyParser(packet_in packet,
     state extract_modbus_tcp {
         packet.extract(hdr.tcp_options);
         packet.extract(hdr.modbus_tcp);
-        transition select(hdr.modbus_tcp.length) {
-           1: accept;
-           _: parse_payload_modbus;
-        }
-    }
-
-    state parse_payload_modbus {
-        bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7) * 8);
-        packet.extract(hdr.payload, (bit<32>)(calculated_length));
         transition accept;
     }
 }
@@ -231,6 +208,7 @@ control MyIngress(inout headers hdr,
                   inout standard_metadata_t standard_metadata) {
 
    register<bit<32>>(8) keys;
+   register<bit<32>>(1) my_counter_registry; 
 
     action drop() {
         mark_to_drop(standard_metadata);
@@ -259,7 +237,7 @@ control MyIngress(inout headers hdr,
     action no_cipher(){
     }
 
-    action cipher() {
+    /*action cipher() {
         meta.isSec = 1;
         hdr.payload_encrypt.setValid();
         hdr.ipv4_options.setValid();
@@ -281,9 +259,9 @@ control MyIngress(inout headers hdr,
         bit<16> crypt_payload_length = ((useful_length_fixed / 16) + 1) * 16;
         hdr.ipv4.totalLen = hdr.ipv4.totalLen - useful_length_fixed + crypt_payload_length + 36; //36 is the ipv4 options size in bytes
         hdr.payload.setInvalid();
-    }
+    }*/
 
-    action decipher() {
+    /*action decipher() {
         meta.isSec = 1;
         hdr.payload_decrypt.setValid();
         bit<32> k1; bit<32> k2; bit<32> k3; bit<32> k4;
@@ -306,28 +284,42 @@ control MyIngress(inout headers hdr,
         hdr.temp.setInvalid();
         hdr.payload.setInvalid();
         hdr.ipv4_options.setInvalid();
+    }*/
+
+    action no_count(){
     }
 
-    table modbus_sec {
+    action count(){
+        bit<32> packets_number;
+
+        my_counter_registry.read(packets_number, 0);
+        
+        if(packets_number <= 20){
+            packets_number = packets_number + 1;
+            my_counter_registry.write(0, packets_number);
+        }
+        else{
+            mark_to_drop(standard_metadata);
+        }
+    }
+
+    table count_packets_by_FC {
         key = {
-            standard_metadata.egress_spec: exact;
+            hdr.modbus_tcp.functionCode: exact;
         }
         actions = {
-            no_cipher;
-            cipher;
-            decipher;
+            count;
+            no_count;
         }
-        size = 2;
-        default_action = no_cipher();
+        size = 1;
+        default_action = no_count();
     }
 
     apply {
         if (hdr.ipv4.isValid()){
             ipv4_lpm.apply();
-            if (hdr.tcp.isValid()){
-                if (hdr.modbus_tcp.isValid()){
-                    modbus_sec.apply();
-                }
+            if (hdr.modbus_tcp.isValid()) {
+                count_packets_by_FC.apply();
             }
         }
     }
@@ -413,9 +405,6 @@ control MyDeparser(packet_out packet, in headers hdr) {
         packet.emit(hdr.tcp);
         packet.emit(hdr.tcp_options);
         packet.emit(hdr.modbus_tcp);
-        packet.emit(hdr.payload_encrypt);
-        packet.emit(hdr.payload_decrypt);
-        packet.emit(hdr.payload);
     }
 }
 

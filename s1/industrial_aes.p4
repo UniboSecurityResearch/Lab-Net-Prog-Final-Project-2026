@@ -9,15 +9,14 @@
 *********************** H E A D E R S  ***********************************
 *************************************************************************/
 const bit<16> TYPE_IPV4 = 0x800;
-const bit<16> IPV4_LEN = 16w20;
-const bit<32> MIRROR_SESSION_ID = 32w100;
-const bit<8> MODBUS_FC_READ_COILS = 8w1;
-const bit<8> MODBUS_FC_READ_DISCRETE_INPUTS = 8w2;
-const bit<8> MODBUS_FC_EXCEPTION_READ_COILS = 8w129;
-const bit<8> MODBUS_FC_EXCEPTION_READ_DISCRETE_INPUTS = 8w130;
-const bit<9> S1_INTER_SWITCH_PORT = 9w2;
+const bit<16> IPV4_LEN = 16w20; //value 20 in 16 bit
+const bit<32> MIRROR_SESSION_ID = 32w100; //value 100 in 32 bit
+const bit<8> MODBUS_FC_READ_COILS = 8w1; //value 1 in 8 bit
+const bit<8> MODBUS_FC_READ_DISCRETE_INPUTS = 8w2; //value 2 in 8 bit
+const bit<8> MODBUS_FC_EXCEPTION_READ_COILS = 8w129; //value 129 in 8 bit
+const bit<8> MODBUS_FC_EXCEPTION_READ_DISCRETE_INPUTS = 8w130; //value 130 in 8 bit
+const bit<9> S1_INTER_SWITCH_PORT = 9w2; 
 const bit<8> MIRROR_FIELD_LIST = 8w0;
-
 
 typedef bit<9>  egressSpec_t;
 typedef bit<48> macAddr_t;
@@ -212,7 +211,7 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.tcp_options);
         packet.extract(hdr.modbus_tcp);
         transition select(hdr.modbus_tcp.length) {
-           1: accept;
+           1: accept; //nothing to parse in payload, as the length field in modbus_tcp counts the unitId byte as well
            _: parse_payload_modbus;
         }
     }
@@ -220,7 +219,7 @@ parser MyParser(packet_in packet,
     state parse_payload_modbus {
         bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7) * 8);
         meta.modbus_function_code = packet.lookahead<bit<8>>();
-	packet.extract(hdr.payload, (bit<32>)(calculated_length));
+	    packet.extract(hdr.payload, (bit<32>)(calculated_length));
         transition accept;
     }
 }
@@ -319,11 +318,13 @@ control MyIngress(inout headers hdr,
         hdr.payload.setInvalid();
         hdr.ipv4_options.setInvalid();
     }
+
     action mirror_to_observer() {
         bit<32> count;
         mirrored_packet_count.read(count, 0);
         mirrored_packet_count.write(0, count + 1);
         clone_preserving_field_list(CloneType.I2E, MIRROR_SESSION_ID, MIRROR_FIELD_LIST);
+        //function used in v1model.p4 to mirror packets, the field list is empty as we want to mirror the entire packet, and the session id is set to 100 as defined in the mirror configuration of the switch
     }
 
 
@@ -353,7 +354,9 @@ control MyIngress(inout headers hdr,
                             mirror_to_observer();
                         }
                     }
+
                     modbus_sec.apply();
+
                     if (standard_metadata.egress_spec != S1_INTER_SWITCH_PORT) {
                         if (meta.modbus_function_code == MODBUS_FC_READ_COILS ||
                             meta.modbus_function_code == MODBUS_FC_READ_DISCRETE_INPUTS ||
@@ -408,7 +411,7 @@ control MyEgress(inout headers hdr,
             last_saved_index.write(0,     current_index + 1);
 
             //reset time window
-            timestamp_last_seen_packet.write(0,     standard_metadata.ingress_global_timestamp);
+            timestamp_last_seen_packet.write(0, standard_metadata.ingress_global_timestamp);
         }
     }
 }

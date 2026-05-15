@@ -11,3 +11,9 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+#Jar
+*.jar
+
+# Temporary files
+*.temp

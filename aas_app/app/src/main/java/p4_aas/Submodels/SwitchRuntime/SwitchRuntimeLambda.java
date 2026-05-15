@@ -39,6 +39,18 @@ public class SwitchRuntimeLambda {
         };
     }
 
+     public Function<Map<String, SubmodelElement>, SubmodelElement[]> readFunctionCodeRegister() {
+        return (args) -> {
+            String functionCode = getIdentifier(args, "FunctionCode");
+            if (functionCode == null) {
+                return output("Invalid register name");
+            }
+
+            String registerName = "function_code_counters";
+            return output(switchCliClient.runCliCommand(getInt(args, "Switch"), "register_read " + registerName + " " + functionCode));
+        };
+    }
+
     private SubmodelElement[] output(String value) {
         return new SubmodelElement[] {
             new Property("Output", value)

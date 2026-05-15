@@ -26,6 +26,7 @@ public class SwitchRuntimeSubmodel extends AbstractSubmodel {
         switchRuntime.addSubmodelElement(showTables());
         switchRuntime.addSubmodelElement(dumpTable());
         switchRuntime.addSubmodelElement(readRegister());
+        switchRuntime.addSubmodelElement(readFunctionCodeRegister());
 
         return List.of(switchRuntime);
     }
@@ -59,4 +60,16 @@ public class SwitchRuntimeSubmodel extends AbstractSubmodel {
         readRegister.setWrappedInvokable(lambdaProvider.readRegister());
         return readRegister;
     }
+
+    private Operation readFunctionCodeRegister() {
+        Operation readRegister = new Operation("readFunctionCodeRegister");
+        Map<String, ValueType> inputVariables = new LinkedHashMap<>();
+        inputVariables.put("Switch", ValueType.Integer);
+        inputVariables.put("FunctionCode", ValueType.Integer);
+        readRegister.setInputVariables(getUtils().getCustomInputVariables(inputVariables));
+        readRegister.setOutputVariables(getUtils().getOperationVariables(1, "Output"));
+        readRegister.setWrappedInvokable(lambdaProvider.readRegister());
+        return readRegister;
+    }
+    
 }

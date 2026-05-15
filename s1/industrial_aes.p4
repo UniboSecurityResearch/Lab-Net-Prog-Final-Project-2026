@@ -102,10 +102,14 @@ struct tcp_metadata_t
     bit<16> payload_length_in_bytes;
 }
 
+struct modbus_metadata_t {
+    bit<8>  function_code;
+}
+
 struct metadata {
     tcp_metadata_t tcp_metadata;
+    modbus_metadata_t   modbus_meta;
     bit<1> isSec;
-    bit<8> modbus_fc;
 }
 
 struct headers {
@@ -209,7 +213,7 @@ parser MyParser(packet_in packet,
     }
 
     state parse_payload_modbus {
-        meta.modbus_fc = packet.lookahead<bit<8>>();
+        meta.modbus_meta.function_code = packet.lookahead<bit<8>>();
 
         bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7) * 8);
         packet.extract(hdr.payload, (bit<32>)(calculated_length));
@@ -327,10 +331,10 @@ control MyIngress(inout headers hdr,
 
     apply {
         if (hdr.modbus_tcp.isValid()) {
-            if (meta.modbus_fc >= 1 && meta.modbus_fc <= 6) {
+          if (meta.modbus_meta.function_code >= 1 && meta.modbus_meta.function_code <= 6) {
                 bit<32> current_count;
-                fc_counters.read(current_count, (bit<32>)meta.modbus_fc);
-                fc_counters.write((bit<32>)meta.modbus_fc, current_count + 1);
+                fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
+                fc_counters.write((bit<32>)meta.modbus_meta.function_code, current_count + 1);
             }
         }
         if (hdr.ipv4.isValid()){

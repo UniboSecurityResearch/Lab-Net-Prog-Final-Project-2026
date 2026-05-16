@@ -36,24 +36,22 @@ public class NetworkInfrastructureSubmodel extends AbstractSubmodel {
         topology.setIdShort("NetworkTopology");
 
         topology.addSubmodelElement(new Property("Switches", "s1, s2"));
-        topology.addSubmodelElement(new Property("Links", "modbusclient-s1, s1-s2, s2-modbusserver"));
+        topology.addSubmodelElement(new Property("Links", "modbusclient-s1, s1-s2, s2-modbusserver, s1-observer"));
         topology.addSubmodelElement(new Property("ManagementNetwork", "100.0.1.0/24"));
         topology.addSubmodelElement(new Property("SwitchManagementIPs", "s1=" + StaticProperties.SW1_MANAGEMENT_IP + ", s2=" + StaticProperties.SW2_MANAGEMENT_IP));
         topology.addSubmodelElement(new Property("ModbusClient", StaticProperties.MODBUS_CLIENT_IP));
         topology.addSubmodelElement(new Property("ModbusServer", StaticProperties.MODBUS_SERVER_IP));
         topology.addSubmodelElement(new Property("ModbusPort", StaticProperties.MODBUS_PORT));
         topology.addSubmodelElement(new Property("AASNetworks", "L=100.0.2.4, D=100.0.1.5, A=195.11.14.100, C=200.1.1.100"));
-
-        Submodel observer = new Submodel();
-        observer.setIdShort("ObserverSubmodel");
-
-        observer.addSubmodelElement(new Property("Counter", "test"));
-
-        List<Submodel> list = new ArrayList<>();
-        list.add(topology);
-        list.add(observer);
-
-		return list;
+        Submodel trafficMirroring = new Submodel();
+        trafficMirroring.setIdShort("TrafficMirroring");
+        trafficMirroring.addSubmodelElement(new Property("Observer", StaticProperties.OBSERVER_IP));
+        trafficMirroring.addSubmodelElement(new Property("ObserverSwitchAttachment", "s" + StaticProperties.OBSERVER_SWITCH + "/port" + StaticProperties.OBSERVER_SWITCH_PORT));
+        trafficMirroring.addSubmodelElement(new Property("ObserverWebUI", "http://localhost:" + StaticProperties.OBSERVER_WEB_PORT));
+        trafficMirroring.addSubmodelElement(new Property("MirrorSessionId", StaticProperties.MIRROR_SESSION_ID));
+        trafficMirroring.addSubmodelElement(new Property("MirroredFunctionCodes", "1, 2"));
+      
+        return List.of(topology, trafficMirroring);
     }
 
 

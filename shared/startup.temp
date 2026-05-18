@@ -13,3 +13,8 @@ observer
 modbusserver 
 s1 
 s2 
+modbusserver 
+modbusclient 
+observer 
+s2 
+s1 

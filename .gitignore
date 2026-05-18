@@ -16,4 +16,5 @@ Thumbs.db
 *.jar
 
 # Temporary files
-*.temp
+shared/startup.temp
+shared/s1.log

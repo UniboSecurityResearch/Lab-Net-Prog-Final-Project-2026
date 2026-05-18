@@ -11,3 +11,10 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+#Jar
+*.jar
+
+# Temporary files
+shared/startup.temp
+shared/s1.log

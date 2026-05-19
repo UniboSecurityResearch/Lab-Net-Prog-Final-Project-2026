@@ -39,6 +39,25 @@ public class SwitchRuntimeLambda {
         };
     }
 
+    public Function<Map<String, SubmodelElement>, SubmodelElement[]> countByFC() {
+        return (args) -> {
+            Integer functionCode = getInt(args, "FunctionCode");
+            if (functionCode == null || functionCode < 1 || functionCode > 6) {
+                return output("Invalid function code");
+            }
+
+            int switchId = getInt(args, "Switch");
+            // Clean the table
+            switchCliClient.runCliCommand(switchId, "table_clear count_packets_by_FC");
+            // Reset the counter
+            switchCliClient.runCliCommand(switchId, "register_write my_counter_registry 0 0");
+            // Add the rule
+            String command = "table_add count_packets_by_FC count " + functionCode + " =>";
+            
+            return output(switchCliClient.runCliCommand(switchId, command));
+        };
+    }
+
     private SubmodelElement[] output(String value) {
         return new SubmodelElement[] {
             new Property("Output", value)

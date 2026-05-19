@@ -26,6 +26,7 @@ public class SwitchRuntimeSubmodel extends AbstractSubmodel {
         switchRuntime.addSubmodelElement(showTables());
         switchRuntime.addSubmodelElement(dumpTable());
         switchRuntime.addSubmodelElement(readRegister());
+        switchRuntime.addSubmodelElement(countByFunctionCode());
 
         return List.of(switchRuntime);
     }
@@ -58,5 +59,16 @@ public class SwitchRuntimeSubmodel extends AbstractSubmodel {
         readRegister.setOutputVariables(getUtils().getOperationVariables(1, "Output"));
         readRegister.setWrappedInvokable(lambdaProvider.readRegister());
         return readRegister;
+    }
+
+    private Operation countByFunctionCode(){
+        Operation countByFC = new Operation("CountByFC");
+        Map<String, ValueType> inputVariables = new LinkedHashMap<>();
+        inputVariables.put("Switch", ValueType.Integer);
+        inputVariables.put("FunctionCode", ValueType.Integer );
+        countByFC.setInputVariables(getUtils().getCustomInputVariables(inputVariables));
+        countByFC.setOutputVariables(getUtils().getOperationVariables(1, "Output"));
+        countByFC.setWrappedInvokable(lambdaProvider.countByFC());
+        return countByFC;
     }
 }

@@ -15,4 +15,8 @@ register_write keys 6 243695780
 register_write keys 7 096548217
 table_add modbus_sec decipher 1 =>
 table_add modbus_sec cipher 2 =>
+register_write fc1_packet_count 0 0
+register_write fc1_threshold 0 10
+register_write fc1_blocking_enabled 0 0
+table_add modbus_fc1_monitor process_fc1 1 =>
 EOF

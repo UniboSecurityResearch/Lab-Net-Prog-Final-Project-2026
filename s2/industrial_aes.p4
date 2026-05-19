@@ -291,7 +291,7 @@ control MyIngress(inout headers hdr,
         keys.read(k1, 0);
         keys.read(k2, 1);
         keys.read(k3, 2);
-        keys.read(k4, 3);
+        keys.re ad(k4, 3);
         keys.read(k5, 4);
         keys.read(k6, 5);
         keys.read(k7, 6);

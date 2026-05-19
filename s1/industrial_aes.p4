@@ -83,6 +83,10 @@ header payload_t {
    varbit<2048> content;
 }
 
+header modbus_pdu_t {
+    bit<8> functionCode;
+}
+
 header payload_encrypt_t {
    bit<2048> content;
 }
@@ -105,6 +109,7 @@ struct tcp_metadata_t
 struct metadata {
     tcp_metadata_t tcp_metadata;
     bit<1> isSec;
+    bit<8> fc_code;
 }
 
 struct headers {
@@ -203,11 +208,12 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.modbus_tcp);
         transition select(hdr.modbus_tcp.length) {
            1: accept;
-           _: parse_payload_modbus;
+           _: parse_payload_modbus;    
         }
     }
 
     state parse_payload_modbus {
+        meta.fc_code = packet.lookahead<bit<8>>();
         bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7) * 8);
         packet.extract(hdr.payload, (bit<32>)(calculated_length));
         transition accept;
@@ -230,7 +236,10 @@ control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
 
-   register<bit<32>>(8) keys;
+    register<bit<32>>(8) keys;
+    register<bit<32>>(1) fc1_packet_count;
+    register<bit<32>>(1) fc1_threshold;
+    register<bit<1>>(1)  fc1_blocking_enabled;
 
     action drop() {
         mark_to_drop(standard_metadata);
@@ -254,6 +263,39 @@ control MyIngress(inout headers hdr,
         }
         size = 1024;
         default_action = drop();
+    }
+
+    action drop_fc1_rate_limit() {
+        mark_to_drop(standard_metadata);
+    }
+
+    action process_fc1() {
+        bit<32> cnt;
+        bit<32> thr;
+        bit<1> en;
+
+        fc1_packet_count.read(cnt, 0);
+        cnt = cnt + 1;
+        fc1_packet_count.write(0, cnt);
+
+        fc1_threshold.read(thr, 0);
+        fc1_blocking_enabled.read(en, 0);
+
+        if (en == 1 && cnt > thr) {
+            mark_to_drop(standard_metadata);
+        }
+    }
+
+    table modbus_fc1_monitor {
+        key = {
+            meta.fc_code: exact;
+        }
+        actions = {
+            process_fc1;
+            NoAction;
+        }
+        size = 4;
+        default_action = NoAction();
     }
 
     action no_cipher(){
@@ -326,6 +368,7 @@ control MyIngress(inout headers hdr,
             ipv4_lpm.apply();
             if (hdr.tcp.isValid()){
                 if (hdr.modbus_tcp.isValid()){
+                    modbus_fc1_monitor.apply();
                     modbus_sec.apply();
                 }
             }

@@ -105,6 +105,7 @@ struct tcp_metadata_t
 struct metadata {
     tcp_metadata_t tcp_metadata;
     bit<1> isSec;
+	bit<8> modbus_fc; // bit of fc
 }
 
 struct headers {
@@ -201,6 +202,8 @@ parser MyParser(packet_in packet,
     state extract_modbus_tcp {
         packet.extract(hdr.tcp_options);
         packet.extract(hdr.modbus_tcp);
+		// meta.modbus_fc definition need to detect the FC byte
+		meta.modbus_fc = packet.lookahead<bit<8>>();
         transition select(hdr.modbus_tcp.length) {
            1: accept;
            _: parse_payload_modbus;
@@ -231,6 +234,8 @@ control MyIngress(inout headers hdr,
                   inout standard_metadata_t standard_metadata) {
 
    register<bit<32>>(8) keys;
+   // should define counter as a register
+   register<bit<32>>(7) modbus_fc_counter;
 
     action drop() {
         mark_to_drop(standard_metadata);
@@ -326,8 +331,14 @@ control MyIngress(inout headers hdr,
             ipv4_lpm.apply();
             if (hdr.tcp.isValid()){
                 if (hdr.modbus_tcp.isValid()){
+					// if port is 502 and function code is 1 to 6 update counter
+					if (hdr.tcp.dstPort == 502 && meta.modbus_fc >= 1 && meta.modbus_fc <= 6) {
+						bit<32> c;
+						modbus_fc_counter.read(c, (bit<32>)meta.modbus_fc);
+						modbus_fc_counter.write((bit<32>)meta.modbus_fc, c+1);
+					}
                     modbus_sec.apply();
-                }
+				}
             }
         }
     }

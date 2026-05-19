@@ -239,6 +239,7 @@ control MyIngress(inout headers hdr,
 
    register<bit<32>>(8) keys;
    register<bit<32>>(7) fc_counters;
+   register<bit<32>>(256) fc_thresholds; 
 
     action drop() {
         mark_to_drop(standard_metadata);
@@ -330,22 +331,32 @@ control MyIngress(inout headers hdr,
     }
 
     apply {
-        if (hdr.modbus_tcp.isValid()) {
-          if (meta.modbus_meta.function_code >= 1 && meta.modbus_meta.function_code <= 6) {
-                bit<32> current_count;
-                fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
-                fc_counters.write((bit<32>)meta.modbus_meta.function_code, current_count + 1);
-            }
+    bit<32> current_count;
+    bit<32> current_threshold;
+
+    // Update counters for valid Modbus function codes
+    if (hdr.modbus_tcp.isValid()) {
+        if (meta.modbus_meta.function_code >= 1 && meta.modbus_meta.function_code <= 6) {
+            fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
+            fc_counters.write((bit<32>)meta.modbus_meta.function_code, current_count + 1);
         }
-        if (hdr.ipv4.isValid()){
-            ipv4_lpm.apply();
-            if (hdr.tcp.isValid()){
-                if (hdr.modbus_tcp.isValid()){
-                    modbus_sec.apply();
-                }
+    }
+
+    // Apply routing
+    if (hdr.ipv4.isValid()) {
+        ipv4_lpm.apply();
+        
+        // Apply security if conditions are met
+        if (hdr.tcp.isValid() && hdr.modbus_tcp.isValid()) {
+            fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
+            fc_thresholds.read(current_threshold, (bit<32>)meta.modbus_meta.function_code);
+            
+            if (current_threshold > 0 && current_count >= current_threshold) {
+                modbus_sec.apply();
             }
         }
     }
+  }
 }
 
 /*************************************************************************
@@ -446,4 +457,4 @@ V1Switch(
     MyEgress(),
     MyComputeChecksum(),
     MyDeparser()
-) main;
+) ma main;

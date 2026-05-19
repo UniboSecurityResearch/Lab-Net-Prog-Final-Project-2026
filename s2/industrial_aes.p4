@@ -80,7 +80,7 @@ header modbus_tcp_t {
 }
 
 header payload_t {
-   varbit<2048> content;
+   varbit<2040> content; //Potrebbe essere 2040
 }
 
 header payload_encrypt_t {
@@ -279,7 +279,7 @@ control MyIngress(inout headers hdr,
         keys.read(k6, 5);
         keys.read(k7, 6);
         keys.read(k8, 7);
-        bit<16> useful_length_fixed = hdr.modbus_tcp.length - 1;
+        bit<16> useful_length_fixed = hdr.modbus_tcp.length - 2;
         hdr.ipv4_options.savedLen = (bit<32>)useful_length_fixed;
         sha256_hash_1024(hdr.ipv4_options.sha, k1, k2, hdr.tcp.seqNo, hdr.payload.content, useful_length_fixed);
         hdr.ipv4.ihl = 14;
@@ -302,7 +302,7 @@ control MyIngress(inout headers hdr,
         keys.read(k6, 5);
         keys.read(k7, 6);
         keys.read(k8, 7);
-        bit<16> useful_length_fixed = hdr.modbus_tcp.length - 1;
+        bit<16> useful_length_fixed = hdr.modbus_tcp.length - 2;
         hdr.temp.setValid();
         Decrypt(hdr.payload.content, hdr.payload_decrypt.content, k1, k2, k3, k4, k5, k6, k7, k8, useful_length_fixed, hdr.ipv4_options.sha, hdr.tcp.seqNo, hdr.temp.shaCalculated);//check metadata
         hdr.ipv4.ihl = 5;
@@ -314,14 +314,21 @@ control MyIngress(inout headers hdr,
         hdr.ipv4_options.setInvalid();
     }
 
+    action toggle_cipher(egressSpec_t secure_port) {
+        if (standard_metadata.ingress_port == secure_port) {
+            decipher();
+        } else {
+            cipher();
+        }
+    }
+
     table modbus_sec {
         key = {
             hdr.modbus_pdu.function_code: exact;
         }
         actions = {
             no_cipher;
-            cipher;
-            decipher;
+            toggle_cipher;
         }
         size = 10;
         default_action = no_cipher();

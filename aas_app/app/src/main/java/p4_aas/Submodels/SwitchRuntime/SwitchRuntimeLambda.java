@@ -7,6 +7,9 @@ import java.util.function.Function;
 import org.eclipse.basyx.submodel.metamodel.map.submodelelement.SubmodelElement;
 import org.eclipse.basyx.submodel.metamodel.map.submodelelement.dataelement.property.Property;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 public class SwitchRuntimeLambda {
     private static final String IDENTIFIER_PATTERN = "[A-Za-z0-9_.]+";
     private final SwitchCliClient switchCliClient;
@@ -65,20 +68,54 @@ public class SwitchRuntimeLambda {
         return Integer.parseInt(String.valueOf(value));
     }
 
-    public Function<Map<String, SubmodelElement>, SubmodelElement[]> enableEncryptionRule() {
+    private String removeRule(int switchId, String table_name, int functionCode) {
+        String dumpOutput = switchCliClient.runCliCommand(switchId, "table_dump " + table_name);
+        String targetHex = String.format("%02d", functionCode);
+        
+        String currentHexHandle = null;
+
+        for (String line : dumpOutput.split("\n")) {
+            line = line.trim();
+
+            if (line.startsWith("Dumping entry")) {
+                currentHexHandle = line.replace("Dumping entry", "").trim();
+            }
+
+            if (currentHexHandle != null && line.contains("modbus_pdu.function_code: EXACT")) {
+                if (line.contains(targetHex) || line.contains(String.valueOf(functionCode))) {
+                    String currentIntHandle = String.valueOf(Integer.decode(currentHexHandle));
+                    String deleteResult = switchCliClient.runCliCommand(switchId, "table_delete " + table_name + " " + currentIntHandle);
+                    return !deleteResult.contains("Error") && !deleteResult.contains("Invalid") ? "deleted" : ("error: " + deleteResult);
+                }
+            }
+        }
+
+        return "not_found"; 
+    }
+
+    public Function<Map<String, SubmodelElement>, SubmodelElement[]> toggleEncryptionRule() {
         return (args) -> {
             Integer functionCode = getInt(args, "FunctionCode");
             if (functionCode == null || functionCode < 1 || functionCode > 6) {
                 return output("Error: Function Code must be an integer between 1 and 6.");
             }
 
-            String command = "table_add modbus_sec cipher " + functionCode + " =>";
-        
-            String outputS1 = switchCliClient.runCliCommand(1, command);
-            String outputS2 = switchCliClient.runCliCommand(2, command);
+            String isRemoved1 = removeRule(1, "modbus_sec", functionCode);
+            String isRemoved2 = removeRule(2, "modbus_sec", functionCode);
+
+            if (isRemoved1.startsWith("error:") || isRemoved2.startsWith("error:")) {
+                return output("Failed to remove existing rule from data plane." + " Output S1: " + isRemoved1 + " Output S2: " + isRemoved2);
+            }
+
+            if (isRemoved1.equals("deleted") || isRemoved2.equals("deleted")) {
+                return output("Encrypted tunnel disabled for Function Code: " + functionCode);
+            }
+
+            String outputS1 = switchCliClient.runCliCommand(1, "table_add modbus_sec toggle_cipher " + functionCode + " => 2");
+            String outputS2 = switchCliClient.runCliCommand(2, "table_add modbus_sec toggle_cipher " + functionCode + " => 2");
             
             if (outputS1.contains("Error") || outputS2.contains("Error")) {
-                return output("Failed to apply rule to data plane.");
+                return output("Failed to apply rule to data plane." + "Output S1: " + outputS1 + " Output S2: " + outputS2);
             }
             return output("Encrypted tunnel enabled for Function Code: " + functionCode);
         };

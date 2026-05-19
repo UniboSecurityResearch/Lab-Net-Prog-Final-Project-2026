@@ -457,4 +457,4 @@ V1Switch(
     MyEgress(),
     MyComputeChecksum(),
     MyDeparser()
-) ma main;
+) main;

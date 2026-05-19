@@ -294,7 +294,7 @@ control MyIngress(inout headers hdr,
 
         my_counter_registry.read(packets_number, 0);
         
-        if(packets_number <= 20){
+        if(packets_number < 20){
             packets_number = packets_number + 1;
             my_counter_registry.write(0, packets_number);
         }

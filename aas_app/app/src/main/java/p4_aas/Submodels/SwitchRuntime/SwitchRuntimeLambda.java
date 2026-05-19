@@ -45,9 +45,8 @@ public class SwitchRuntimeLambda {
             if (functionCode == null) {
                 return output("Invalid register name");
             }
-
             String registerName = "function_code_counters";
-            return output(switchCliClient.runCliCommand(getInt(args, "Switch"), "register_read " + registerName + " " + functionCode));
+            return output(switchCliClient.runCliCommand(1, "register_read " + registerName + " " + functionCode));
         };
     }
 

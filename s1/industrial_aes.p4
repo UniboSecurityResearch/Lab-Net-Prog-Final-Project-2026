@@ -209,25 +209,25 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.modbus_tcp);
         transition select(hdr.modbus_tcp.length) {
            1: accept;
-           _: parse_payload_modbus;
+           _: extract_modbus_pdu;
         }
     }
 
     state extract_modbus_pdu {
         packet.extract(hdr.modbus_pdu);
         transition select(hdr.modbus_pdu.functionCode) {
-            1: accept;
-            2: accept;
-            3: accept;
-            4: accept;
-            5: accept;
-            6: accept;
-            _: parse_payload_modbus;
+            1: parse_payload_modbus;
+            2: parse_payload_modbus;
+            3: parse_payload_modbus;
+            4: parse_payload_modbus;
+            5: parse_payload_modbus;
+            6: parse_payload_modbus;
+            _: accept;
         }
     }
 
     state parse_payload_modbus {
-        bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7) * 8);
+        bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7 - 1) * 8);
         packet.extract(hdr.payload, (bit<32>)(calculated_length));
         transition accept;
     }
@@ -356,7 +356,9 @@ control MyIngress(inout headers hdr,
             ipv4_lpm.apply();
             if (hdr.tcp.isValid()){
                 if (hdr.modbus_tcp.isValid()){
-                    modbus_sec.apply();
+                  if (hdr.modbus_pdu.isValid()){
+                      modbus_sec.apply();
+                  }
                 }
             }
         }
@@ -443,6 +445,7 @@ control MyDeparser(packet_out packet, in headers hdr) {
         packet.emit(hdr.tcp);
         packet.emit(hdr.tcp_options);
         packet.emit(hdr.modbus_tcp);
+        packet.emit(hdr.modbus_pdu);
         packet.emit(hdr.payload_encrypt);
         packet.emit(hdr.payload_decrypt);
         packet.emit(hdr.payload);

@@ -79,10 +79,6 @@ header modbus_tcp_t {
     bit<8> unitId;
 }
 
-header modbus_pdu_t {
-	bit<8> function_code;
-}
-
 header payload_t {
    varbit<2048> content;
 }
@@ -109,6 +105,7 @@ struct tcp_metadata_t
 struct metadata {
     tcp_metadata_t tcp_metadata;
     bit<1> isSec;
+	bit<8> modbus_fc; // bit of fc
 }
 
 struct headers {
@@ -118,7 +115,6 @@ struct headers {
     tcp_t tcp;
     tcp_options_t tcp_options;
     modbus_tcp_t modbus_tcp;
-	modbus_pdu_t modbus_pdu;
     payload_t payload;
     payload_encrypt_t payload_encrypt;
     payload_decrypt_t payload_decrypt;
@@ -206,7 +202,8 @@ parser MyParser(packet_in packet,
     state extract_modbus_tcp {
         packet.extract(hdr.tcp_options);
         packet.extract(hdr.modbus_tcp);
-		packet.extract(hdr.modbus_pdu);
+		// meta.modbus_fc definition need to detect the FC byte
+		meta.modbus_fc = packet.lookahead<bit<8>>();
         transition select(hdr.modbus_tcp.length) {
            1: accept;
            _: parse_payload_modbus;
@@ -214,7 +211,7 @@ parser MyParser(packet_in packet,
     }
 
     state parse_payload_modbus {
-        bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 8) * 8);
+        bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7) * 8);
         packet.extract(hdr.payload, (bit<32>)(calculated_length));
         transition accept;
     }
@@ -237,6 +234,7 @@ control MyIngress(inout headers hdr,
                   inout standard_metadata_t standard_metadata) {
 
    register<bit<32>>(8) keys;
+   // should define counter as a register
    register<bit<32>>(7) modbus_fc_counter;
 
     action drop() {
@@ -280,7 +278,7 @@ control MyIngress(inout headers hdr,
         keys.read(k6, 5);
         keys.read(k7, 6);
         keys.read(k8, 7);
-        bit<16> useful_length_fixed = hdr.modbus_tcp.length - 2;
+        bit<16> useful_length_fixed = hdr.modbus_tcp.length - 1;
         hdr.ipv4_options.savedLen = (bit<32>)useful_length_fixed;
         sha256_hash_1024(hdr.ipv4_options.sha, k1, k2, hdr.tcp.seqNo, hdr.payload.content, useful_length_fixed);
         hdr.ipv4.ihl = 14;
@@ -303,7 +301,7 @@ control MyIngress(inout headers hdr,
         keys.read(k6, 5);
         keys.read(k7, 6);
         keys.read(k8, 7);
-        bit<16> useful_length_fixed = hdr.modbus_tcp.length - 2;
+        bit<16> useful_length_fixed = hdr.modbus_tcp.length - 1;
         hdr.temp.setValid();
         Decrypt(hdr.payload.content, hdr.payload_decrypt.content, k1, k2, k3, k4, k5, k6, k7, k8, useful_length_fixed, hdr.ipv4_options.sha, hdr.tcp.seqNo, hdr.temp.shaCalculated);//check metadata
         hdr.ipv4.ihl = 5;
@@ -333,13 +331,13 @@ control MyIngress(inout headers hdr,
             ipv4_lpm.apply();
             if (hdr.tcp.isValid()){
                 if (hdr.modbus_tcp.isValid()){
-					if (hdr.modbus_pdu.isValid() && hdr.tcp.dstPort == 502 && hdr.modbus_pdu.function_code >= 1 && hdr.modbus_pdu.function_code <= 6) {
-					   bit<32> idx = (bit<32>)hdr.modbus_pdu.function_code;
-					   bit<32> c;
-					   modbus_fc_counter.read(c, idx);
-					   modbus_fc_counter.write(idx, c + 1);
-					   } 
-					modbus_sec.apply();
+					// if port is 502 and function code is 1 to 6 update counter
+					if (hdr.tcp.dstPort == 502 && meta.modbus_fc >= 1 && meta.modbus_fc <= 6) {
+						bit<32> c;
+						modbus_fc_counter.read(c, (bit<32>)meta.modbus_fc);
+						modbus_fc_counter.write((bit<32>)meta.modbus_fc, c+1);
+					}
+                    modbus_sec.apply();
 				}
             }
         }
@@ -426,7 +424,6 @@ control MyDeparser(packet_out packet, in headers hdr) {
         packet.emit(hdr.tcp);
         packet.emit(hdr.tcp_options);
         packet.emit(hdr.modbus_tcp);
-		packet.emit(hdr.modbus_pdu);
         packet.emit(hdr.payload_encrypt);
         packet.emit(hdr.payload_decrypt);
         packet.emit(hdr.payload);

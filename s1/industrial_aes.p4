@@ -270,7 +270,7 @@ control MyIngress(inout headers hdr,
     }
 
     action process_fc1() {
-        bit<32> cnt;
+        bit<32> cnt;    
         bit<32> thr;
         bit<1> en;
 

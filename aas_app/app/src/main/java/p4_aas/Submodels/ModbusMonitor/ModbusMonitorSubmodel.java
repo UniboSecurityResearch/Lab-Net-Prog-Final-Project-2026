@@ -48,10 +48,10 @@ public class ModbusMonitorSubmodel extends AbstractSubmodel {
     private Property buildFc4CountProperty() {
         Supplier<Object> getter = this::readFc4Count;
 
-        Property p = new Property();
+        Property p = new ReadOnlyProperty(getter);
         p.setIdShort("Fc4PacketCount");
         p.setValueType(ValueType.Integer);
-        p.setValue(VABLambdaProviderHelper.createSimple(getter, null));
+        markReadOnly(p);
         
         return p;
     }
@@ -59,12 +59,18 @@ public class ModbusMonitorSubmodel extends AbstractSubmodel {
     private Property buildFc4AlarmProperty() {
         Supplier<Object> getter = () -> readFc4Count() > ALARM_THRESHOLD;
 
-        Property p = new Property();
+        Property p = new ReadOnlyProperty(getter);
         p.setIdShort("Fc4Alarm");
         p.setValueType(ValueType.Boolean);
-        p.setValue(VABLambdaProviderHelper.createSimple(getter, null));
+        markReadOnly(p);
 
         return p;
+    }
+
+    private void markReadOnly(Property property) {
+        Qualifier readOnly = new Qualifier("ReadOnly", ValueType.Boolean);
+        readOnly.setValue(true);
+        property.setQualifiers(List.of(readOnly));
     }
 
     private synchronized int readFc4Count() {

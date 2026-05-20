@@ -239,7 +239,7 @@ control MyIngress(inout headers hdr,
 
    register<bit<32>>(8) keys;
    register<bit<32>>(7) fc_counters;
-   register<bit<32>>(256) fc_thresholds; 
+   register<bit<32>>(7) fc_thresholds;
 
     action drop() {
         mark_to_drop(standard_metadata);
@@ -334,25 +334,33 @@ control MyIngress(inout headers hdr,
     bit<32> current_count;
     bit<32> current_threshold;
 
-    // Update counters for valid Modbus function codes
-    if (hdr.modbus_tcp.isValid()) {
+    // leggiamo e aggiorniamo fc_counter solo quando riceviamo un pacchetto non crittato.
+    // altrimenti leggeremmo del garbage.
+    // Possiamo farlo perchè il server invia una risposta e quindi abbiamo il registro
+    // fc_counters uguale sia in s1 che in s2
+    if (hdr.modbus_tcp.isValid() && !hdr.ipv4_options.isValid()) {
         if (meta.modbus_meta.function_code >= 1 && meta.modbus_meta.function_code <= 6) {
             fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
             fc_counters.write((bit<32>)meta.modbus_meta.function_code, current_count + 1);
         }
     }
 
-    // Apply routing
     if (hdr.ipv4.isValid()) {
         ipv4_lpm.apply();
-        
-        // Apply security if conditions are met
         if (hdr.tcp.isValid() && hdr.modbus_tcp.isValid()) {
-            fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
-            fc_thresholds.read(current_threshold, (bit<32>)meta.modbus_meta.function_code);
-            
-            if (current_threshold > 0 && current_count >= current_threshold) {
-                modbus_sec.apply();
+
+            // se il pacchetto è criptato
+            if (hdr.ipv4_options.isValid()) {
+                modbus_sec.apply(); //decifriamo se la porta di uscita è la 1
+            }
+            // se il pacchetto è in chiaro controliamo la soglia per cifrarlo o meno
+            else {
+                fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
+                fc_thresholds.read(current_threshold, (bit<32>)meta.modbus_meta.function_code);
+
+                if (current_threshold > 0 && current_count >= current_threshold) {
+                    modbus_sec.apply(); // cifriamo se la porta di uscita è la 2
+                }
             }
         }
     }

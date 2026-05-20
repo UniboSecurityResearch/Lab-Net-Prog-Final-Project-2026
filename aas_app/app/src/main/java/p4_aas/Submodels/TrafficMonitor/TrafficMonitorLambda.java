@@ -24,24 +24,6 @@ public class TrafficMonitorLambda {
             int threshold = getInt(args, "Threshold");
             if (fc < 1 || fc > 6) return output("Invalid function code (must be 1-6)");
 
-            /*
-            String raw = switchCliClient.runCliCommand(1, "register_read fc_counters " + fc);
-            int count = parseRegisterValue(raw);
-            if (count < threshold) {
-                try {
-                  switchCliClient.runCliCommand(1, "table_clear modbus_sec");
-                  switchCliClient.runCliCommand(2, "table_clear modbus_sec");
-                } catch (Exception e){
-                    return output("OK. Threshold not met. threshold=" + threshold);
-                }
-                return output("OK. Threshold not met. threshold=" + threshold);
-            } */
-            
-            switchCliClient.runCliCommand(1, "table_add modbus_sec decipher 1 =>");
-            switchCliClient.runCliCommand(1, "table_add modbus_sec cipher 2 =>");
-            switchCliClient.runCliCommand(2, "table_add modbus_sec decipher 1 =>");
-            switchCliClient.runCliCommand(2, "table_add modbus_sec cipher 2 =>");
-
             switchCliClient.runCliCommand(1, "register_write fc_thresholds " + fc + " " + threshold);
             switchCliClient.runCliCommand(2, "register_write fc_thresholds " + fc + " " + threshold);
             

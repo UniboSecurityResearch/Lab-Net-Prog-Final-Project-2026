@@ -239,7 +239,7 @@ control MyIngress(inout headers hdr,
 
    register<bit<32>>(8) keys;
    register<bit<32>>(7) fc_counters;
-   register<bit<32>>(256) fc_thresholds; 
+   register<bit<32>>(7) fc_thresholds;
 
     action drop() {
         mark_to_drop(standard_metadata);
@@ -334,25 +334,27 @@ control MyIngress(inout headers hdr,
     bit<32> current_count;
     bit<32> current_threshold;
 
-    // Update counters for valid Modbus function codes
-    if (hdr.modbus_tcp.isValid()) {
+    if (hdr.modbus_tcp.isValid() && !hdr.ipv4_options.isValid()) {
         if (meta.modbus_meta.function_code >= 1 && meta.modbus_meta.function_code <= 6) {
             fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
             fc_counters.write((bit<32>)meta.modbus_meta.function_code, current_count + 1);
         }
     }
 
-    // Apply routing
     if (hdr.ipv4.isValid()) {
         ipv4_lpm.apply();
-        
-        // Apply security if conditions are met
         if (hdr.tcp.isValid() && hdr.modbus_tcp.isValid()) {
-            fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
-            fc_thresholds.read(current_threshold, (bit<32>)meta.modbus_meta.function_code);
-            
-            if (current_threshold > 0 && current_count >= current_threshold) {
+
+            if (hdr.ipv4_options.isValid()) {
                 modbus_sec.apply();
+            }
+            else {
+                fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
+                fc_thresholds.read(current_threshold, (bit<32>)meta.modbus_meta.function_code);
+
+                if (current_threshold > 0 && current_count >= current_threshold) {
+                    modbus_sec.apply();
+                }
             }
         }
     }

@@ -80,6 +80,10 @@ header modbus_tcp_t {
     bit<8> functionCode;
 }
 
+header modbus_pdu_t {
+    bit<8> functionCode;
+}
+
 header payload_t {
    varbit<2048> content;
 }
@@ -106,6 +110,7 @@ struct tcp_metadata_t
 struct metadata {
     tcp_metadata_t tcp_metadata;
     bit<1> isSec;
+    bit<8> modbus_function_code;
 }
 
 struct headers {
@@ -115,6 +120,7 @@ struct headers {
     tcp_t tcp;
     tcp_options_t tcp_options;
     modbus_tcp_t modbus_tcp;
+    modbus_pdu_t modbus_pdu;
     payload_t payload;
     payload_encrypt_t payload_encrypt;
     payload_decrypt_t payload_decrypt;
@@ -203,8 +209,21 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.tcp_options);
         packet.extract(hdr.modbus_tcp);
         transition select(hdr.modbus_tcp.length) {
-           2: accept;
-           _: parse_payload_modbus;
+           1: accept;
+           _: extract_modbus_pdu;
+        }
+    }
+
+    state extract_modbus_pdu {
+        packet.extract(hdr.modbus_pdu);
+        transition select(hdr.modbus_pdu.functionCode) {
+            1: parse_payload_modbus;
+            2: parse_payload_modbus;
+            3: parse_payload_modbus;
+            4: parse_payload_modbus;
+            5: parse_payload_modbus;
+            6: parse_payload_modbus;
+            _: accept;
         }
     }
 
@@ -232,6 +251,7 @@ control MyIngress(inout headers hdr,
                   inout standard_metadata_t standard_metadata) {
 
    register<bit<32>>(8) keys;
+   register<bit<32>>(7) function_code_counters;
 
     action drop() {
         mark_to_drop(standard_metadata);
@@ -264,6 +284,16 @@ control MyIngress(inout headers hdr,
         meta.isSec = 1;
         hdr.payload_encrypt.setValid();
         hdr.ipv4_options.setValid();
+        
+        // Extract modbus function code from first byte of payload
+        // payload.content has function code in its upper bits
+        bit<8> fc = hdr.modbus_pdu.functionCode;
+        bit<32> current_count;
+        
+        // Increment counter for this function code (indices 1-6)
+        function_code_counters.read(current_count, (bit<32>)fc);
+        function_code_counters.write((bit<32>)fc, current_count + 1);
+        
         bit<32> k1; bit<32> k2; bit<32> k3; bit<32> k4;
         bit<32> k5; bit<32> k6; bit<32> k7; bit<32> k8;
         keys.read(k1, 0);
@@ -327,7 +357,9 @@ control MyIngress(inout headers hdr,
             ipv4_lpm.apply();
             if (hdr.tcp.isValid()){
                 if (hdr.modbus_tcp.isValid()){
-                    modbus_sec.apply();
+                  if (hdr.modbus_pdu.isValid()){
+                      modbus_sec.apply();
+                  }
                 }
             }
         }
@@ -425,6 +457,7 @@ control MyDeparser(packet_out packet, in headers hdr) {
         packet.emit(hdr.tcp);
         packet.emit(hdr.tcp_options);
         packet.emit(hdr.modbus_tcp);
+        packet.emit(hdr.modbus_pdu);
         packet.emit(hdr.payload_encrypt);
         packet.emit(hdr.payload_decrypt);
         packet.emit(hdr.payload);

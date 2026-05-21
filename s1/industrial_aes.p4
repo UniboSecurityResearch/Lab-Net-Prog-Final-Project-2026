@@ -77,6 +77,7 @@ header modbus_tcp_t {
     bit<16> protocolId;
     bit<16> length;
     bit<8> unitId;
+    bit<8> functionCode;
 }
 
 header payload_t {
@@ -202,13 +203,13 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.tcp_options);
         packet.extract(hdr.modbus_tcp);
         transition select(hdr.modbus_tcp.length) {
-           1: accept;
+           2: accept;
            _: parse_payload_modbus;
         }
     }
 
     state parse_payload_modbus {
-        bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7) * 8);
+        bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 8) * 8);
         packet.extract(hdr.payload, (bit<32>)(calculated_length));
         transition accept;
     }
@@ -350,17 +351,24 @@ control MyEgress(inout headers hdr,
     bit<48> last_time;
     bit<32> current_index;
 
-    register<bit<16>>(6) function_code_counters;
+    //First register position is unused.
+    register<bit<32>>(7) function_code_counters;
 
     apply {
 
-        function_code_counters.write(1,10);
+        if (hdr.modbus_tcp.isValid()) {
+            bit<32> fuctionCode = (bit<32>) hdr.modbus_tcp.functionCode;
+            bit<32> fuctionCodecount;
+            function_code_counters.read(fuctionCodecount, fuctionCode);
+            function_code_counters.write(fuctionCode, fuctionCodecount + 1);
+        }
 
         timestamp_last_seen_packet.read(last_time,     0);
 
         diff_time = standard_metadata.ingress_global_timestamp - last_time;
 
         if(meta.isSec == 1){
+            
             //retrieve index
             last_saved_index.read(current_index,     0);
 

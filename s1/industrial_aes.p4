@@ -289,10 +289,13 @@ control MyIngress(inout headers hdr,
         // payload.content has function code in its upper bits
         bit<8> fc = hdr.modbus_pdu.functionCode;
         bit<32> current_count;
+
+        if (fc >= 1 && fc <= 6) {
+            // Increment counter for this function code (indices 1-6)
+            function_code_counters.read(current_count, (bit<32>)fc);
+            function_code_counters.write((bit<32>)fc, current_count + 1);
+        }
         
-        // Increment counter for this function code (indices 1-6)
-        function_code_counters.read(current_count, (bit<32>)fc);
-        function_code_counters.write((bit<32>)fc, current_count + 1);
         
         bit<32> k1; bit<32> k2; bit<32> k3; bit<32> k4;
         bit<32> k5; bit<32> k6; bit<32> k7; bit<32> k8;
@@ -383,17 +386,7 @@ control MyEgress(inout headers hdr,
     bit<48> last_time;
     bit<32> current_index;
 
-    //First register position is unused.
-    register<bit<32>>(7) function_code_counters;
-
     apply {
-
-        if (hdr.modbus_tcp.isValid()) {
-            bit<32> fuctionCode = (bit<32>) hdr.modbus_tcp.functionCode;
-            bit<32> fuctionCodecount;
-            function_code_counters.read(fuctionCodecount, fuctionCode);
-            function_code_counters.write(fuctionCode, fuctionCodecount + 1);
-        }
 
         timestamp_last_seen_packet.read(last_time,     0);
 

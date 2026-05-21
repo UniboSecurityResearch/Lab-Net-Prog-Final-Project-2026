@@ -3,6 +3,7 @@ package p4_aas.Submodels.SwitchRuntime;
 import java.math.BigInteger;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.regex.*;
 
 import org.eclipse.basyx.submodel.metamodel.map.submodelelement.SubmodelElement;
 import org.eclipse.basyx.submodel.metamodel.map.submodelelement.dataelement.property.Property;
@@ -41,13 +42,24 @@ public class SwitchRuntimeLambda {
 
      public Function<Map<String, SubmodelElement>, SubmodelElement[]> readFunctionCodeRegister() {
         return (args) -> {
-            String functionCode = getIdentifier(args, "FunctionCode");
-            if (functionCode == null) {
-                return output("Invalid register name");
+            int functionCode = getInt(args, "FunctionCode");
+            if (functionCode < 1 || functionCode > 6) {
+                return output("Invalid function code");
             }
             String registerName = "function_code_counters";
-            return output(switchCliClient.runCliCommand(1, "register_read " + registerName + " " + functionCode));
+            String out = switchCliClient.runCliCommand(1, "register_read " + registerName + " " + functionCode);
+            return output(extractValue(out));
         };
+    }
+
+    private String extractValue(String output){
+        Pattern p = Pattern.compile("=\\s*(\\d+)");
+        Matcher m = p.matcher(output);
+        if (m.find()) {
+            return m.group(1);
+        } else {
+            return "Error in extracting count";
+        }
     }
 
     private SubmodelElement[] output(String value) {

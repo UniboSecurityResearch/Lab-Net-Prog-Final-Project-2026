@@ -47,8 +47,10 @@ public class SwitchRuntimeLambda {
                 return output("Invalid function code");
             }
             String registerName = "function_code_counters";
-            String out = switchCliClient.runCliCommand(1, "register_read " + registerName + " " + functionCode);
-            return output(extractValue(out));
+            String outS1 = switchCliClient.runCliCommand(1, "register_read " + registerName + " " + functionCode);
+            String outS2 = switchCliClient.runCliCommand(2, "register_read " + registerName + " " + functionCode);
+            int count = Integer.parseInt(extractValue(outS1)) + Integer.parseInt(extractValue(outS2));
+            return output("" + count);
         };
     }
 

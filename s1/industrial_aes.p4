@@ -334,11 +334,8 @@ control MyIngress(inout headers hdr,
     bit<32> current_count;
     bit<32> current_threshold;
 
-    // leggiamo e aggiorniamo fc_counter solo quando riceviamo un pacchetto non crittato.
-    // altrimenti leggeremmo del garbage.
-    // Possiamo farlo perchè il server invia una risposta e quindi abbiamo il registro
-    // fc_counters uguale sia in s1 che in s2
-    if (hdr.modbus_tcp.isValid() && !hdr.ipv4_options.isValid() && hdr.tcp.dstPort == 502) {
+    // contia solo i pacchetti che arrivano dalla nostra rete (dal nostro client)
+    if (hdr.modbus_tcp.isValid() && standard_metadata.ingress_port == 1) {
         if (meta.modbus_meta.function_code >= 1 && meta.modbus_meta.function_code <= 6) {
             fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
             fc_counters.write((bit<32>)meta.modbus_meta.function_code, current_count + 1);

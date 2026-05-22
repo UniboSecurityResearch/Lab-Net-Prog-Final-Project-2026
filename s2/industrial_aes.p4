@@ -102,8 +102,13 @@ struct tcp_metadata_t
     bit<16> payload_length_in_bytes;
 }
 
+struct modbus_metadata_t {
+    bit<8>  function_code;
+}
+
 struct metadata {
     tcp_metadata_t tcp_metadata;
+    modbus_metadata_t   modbus_meta;
     bit<1> isSec;
 }
 
@@ -208,6 +213,8 @@ parser MyParser(packet_in packet,
     }
 
     state parse_payload_modbus {
+        meta.modbus_meta.function_code = packet.lookahead<bit<8>>();
+
         bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7) * 8);
         packet.extract(hdr.payload, (bit<32>)(calculated_length));
         transition accept;
@@ -231,6 +238,8 @@ control MyIngress(inout headers hdr,
                   inout standard_metadata_t standard_metadata) {
 
    register<bit<32>>(8) keys;
+   register<bit<32>>(7) fc_counters;
+   register<bit<32>>(7) fc_thresholds;
 
     action drop() {
         mark_to_drop(standard_metadata);
@@ -322,15 +331,35 @@ control MyIngress(inout headers hdr,
     }
 
     apply {
-        if (hdr.ipv4.isValid()){
-            ipv4_lpm.apply();
-            if (hdr.tcp.isValid()){
-                if (hdr.modbus_tcp.isValid()){
+    bit<32> current_count;
+    bit<32> current_threshold;
+
+    // qui invece dal server
+    if (hdr.modbus_tcp.isValid() && standard_metadata.ingress_port == 1) {
+        if (meta.modbus_meta.function_code >= 1 && meta.modbus_meta.function_code <= 6) {
+            fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
+            fc_counters.write((bit<32>)meta.modbus_meta.function_code, current_count + 1);
+        }
+    }
+
+    if (hdr.ipv4.isValid()) {
+        ipv4_lpm.apply();
+        if (hdr.tcp.isValid() && hdr.modbus_tcp.isValid()) {
+
+            if (hdr.ipv4_options.isValid()) {
+                modbus_sec.apply();
+            }
+            else {
+                fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
+                fc_thresholds.read(current_threshold, (bit<32>)meta.modbus_meta.function_code);
+
+                if (current_threshold > 0 && current_count >= current_threshold) {
                     modbus_sec.apply();
                 }
             }
         }
     }
+  }
 }
 
 /*************************************************************************

@@ -17,6 +17,7 @@ package p4_aas.AssetShells;
 import org.eclipse.basyx.aas.metamodel.api.parts.asset.AssetKind;
 
 import p4_aas.Submodels.SwitchRuntime.SwitchRuntimeSubmodel;
+import p4_aas.Submodels.TrafficMonitor.TrafficMonitorSubmodel;
 
 /**
  * Extends AbstractShell for creating a Network Control Plane AAS
@@ -34,5 +35,6 @@ public class NetworkControlPlane extends AbstractShell {
 
     private void createSubmodels() {
         this.submodels.addAll(new SwitchRuntimeSubmodel().createSubmodel());
+        this.submodels.addAll(new TrafficMonitorSubmodel().createSubmodel());
     }
 }

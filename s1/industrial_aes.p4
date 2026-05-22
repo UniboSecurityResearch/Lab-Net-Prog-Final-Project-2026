@@ -338,7 +338,7 @@ control MyIngress(inout headers hdr,
     // altrimenti leggeremmo del garbage.
     // Possiamo farlo perchè il server invia una risposta e quindi abbiamo il registro
     // fc_counters uguale sia in s1 che in s2
-    if (hdr.modbus_tcp.isValid() && !hdr.ipv4_options.isValid()) {
+    if (hdr.modbus_tcp.isValid() && !hdr.ipv4_options.isValid() && hdr.tcp.dstPort == 502) {
         if (meta.modbus_meta.function_code >= 1 && meta.modbus_meta.function_code <= 6) {
             fc_counters.read(current_count, (bit<32>)meta.modbus_meta.function_code);
             fc_counters.write((bit<32>)meta.modbus_meta.function_code, current_count + 1);

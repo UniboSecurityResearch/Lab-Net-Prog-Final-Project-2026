@@ -9,6 +9,7 @@
 *********************** H E A D E R S  ***********************************
 *************************************************************************/
 const bit<16> TYPE_IPV4 = 0x800;
+const bit<32> FC_MIRROR_SESSION = 1;
 const bit<16> IPV4_LEN = 16w20;
 
 typedef bit<9>  egressSpec_t;
@@ -77,6 +78,7 @@ header modbus_tcp_t {
     bit<16> protocolId;
     bit<16> length;
     bit<8> unitId;
+    bit<8> functionCode;
 }
 
 header payload_t {
@@ -105,6 +107,7 @@ struct tcp_metadata_t
 struct metadata {
     tcp_metadata_t tcp_metadata;
     bit<1> isSec;
+    bit<1> isFcClone;
 }
 
 struct headers {
@@ -132,6 +135,7 @@ parser MyParser(packet_in packet,
 
     state start {
         meta.isSec = 0;
+        meta.isFcClone = 0;
        transition parse_ethernet;
     }
 
@@ -201,9 +205,26 @@ parser MyParser(packet_in packet,
     state extract_modbus_tcp {
         packet.extract(hdr.tcp_options);
         packet.extract(hdr.modbus_tcp);
+        transition check_function_code;
+    }
+
+    state check_function_code {
+        transition select(hdr.modbus_tcp.functionCode) {
+            0x01: handle_fc_clone;
+            0x02: handle_fc_clone;
+            default: check_modbus_length;
+        }
+    }
+
+    state handle_fc_clone {
+        meta.isFcClone = 1;
+        transition check_modbus_length;
+    }
+
+    state check_modbus_length {
         transition select(hdr.modbus_tcp.length) {
-           1: accept;
-           _: parse_payload_modbus;
+            1: accept;
+            _: parse_payload_modbus;
         }
     }
 
@@ -326,6 +347,9 @@ control MyIngress(inout headers hdr,
             ipv4_lpm.apply();
             if (hdr.tcp.isValid()){
                 if (hdr.modbus_tcp.isValid()){
+                    if (meta.isFcClone == 1) {
+                        clone(CloneType.I2E, FC_MIRROR_SESSION);
+                    }
                     modbus_sec.apply();
                 }
             }

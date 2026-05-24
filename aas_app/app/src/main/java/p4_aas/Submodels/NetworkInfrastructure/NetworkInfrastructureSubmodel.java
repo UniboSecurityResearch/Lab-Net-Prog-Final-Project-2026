@@ -22,6 +22,7 @@ import p4_aas.StaticProperties;
 import p4_aas.Submodels.AbstractSubmodel;
 
 import java.util.List;
+import java.util.ArrayList;
 
 public class NetworkInfrastructureSubmodel extends AbstractSubmodel {
     private final TrafficMirrorLambda lambdaProvider;
@@ -32,6 +33,7 @@ public class NetworkInfrastructureSubmodel extends AbstractSubmodel {
 
     @Override
     public List<Submodel> createSubmodel() {
+
         Submodel topology = new Submodel();
         topology.setIdShort("NetworkTopology");
 

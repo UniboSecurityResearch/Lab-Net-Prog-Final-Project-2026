@@ -40,7 +40,7 @@ public class SwitchRuntimeLambda {
         };
     }
 
-     public Function<Map<String, SubmodelElement>, SubmodelElement[]> readFunctionCodeRegister() {
+     public Function<Map<String, SubmodelElement>, SubmodelElement[]> readFunctionCodeRegisterBySwitch() {
         return (args) -> {
             int functionCode = getInt(args, "FunctionCode");
             if (functionCode < 1 || functionCode > 6) {
@@ -52,6 +52,20 @@ public class SwitchRuntimeLambda {
             String outS1 = switchCliClient.runCliCommand(switchNum, "register_read " + registerName + " " + functionCode);
             //String outS2 = switchCliClient.runCliCommand(2, "register_read " + registerName + " " + functionCode);
             int count = Integer.parseInt(extractValue(outS1)); //+ Integer.parseInt(extractValue(outS2));
+            return output("" + count);
+        };
+    }
+
+     public Function<Map<String, SubmodelElement>, SubmodelElement[]> readFunctionCodeRegister() {
+        return (args) -> {
+            int functionCode = getInt(args, "FunctionCode");
+            if (functionCode < 1 || functionCode > 6) {
+                return output("Invalid function code");
+            }
+            String registerName = "function_code_counters";
+            String outS1 = switchCliClient.runCliCommand(1, "register_read " + registerName + " " + functionCode);
+            String outS2 = switchCliClient.runCliCommand(2, "register_read " + registerName + " " + functionCode);
+            int count = Integer.parseInt(extractValue(outS1)) + Integer.parseInt(extractValue(outS2));
             return output("" + count);
         };
     }

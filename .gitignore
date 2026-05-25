@@ -13,8 +13,7 @@ build/
 Thumbs.db
 
 #Jar
-aas_project/P4_AAS.jar
-*.class
+*.jar
 
 # Temporary files
 shared/startup.temp

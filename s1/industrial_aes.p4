@@ -13,6 +13,8 @@ const bit<16> IPV4_LEN = 16w20; //value 20 in 16 bit
 const bit<32> MIRROR_SESSION_ID = 32w100; //value 100 in 32 bit
 const bit<8> MODBUS_FC_READ_COILS = 8w1; //value 1 in 8 bit
 const bit<8> MODBUS_FC_READ_DISCRETE_INPUTS = 8w2; //value 2 in 8 bit
+const bit<8> MODBUS_FC_EXCEPTION_READ_COILS = 8w129; //value 129 in 8 bit
+const bit<8> MODBUS_FC_EXCEPTION_READ_DISCRETE_INPUTS = 8w130; //value 130 in 8 bit
 const bit<9> S1_INTER_SWITCH_PORT = 9w2; 
 const bit<8> MIRROR_FIELD_LIST = 8w0;
 
@@ -346,7 +348,9 @@ control MyIngress(inout headers hdr,
                 if (hdr.modbus_tcp.isValid()){
                     if (standard_metadata.egress_spec == S1_INTER_SWITCH_PORT) {
                         if (meta.modbus_function_code == MODBUS_FC_READ_COILS ||
-                            meta.modbus_function_code == MODBUS_FC_READ_DISCRETE_INPUTS) {
+                            meta.modbus_function_code == MODBUS_FC_READ_DISCRETE_INPUTS ||
+                            meta.modbus_function_code == MODBUS_FC_EXCEPTION_READ_COILS ||
+                            meta.modbus_function_code == MODBUS_FC_EXCEPTION_READ_DISCRETE_INPUTS) {
                             mirror_to_observer();
                         }
                     }
@@ -355,7 +359,9 @@ control MyIngress(inout headers hdr,
 
                     if (standard_metadata.egress_spec != S1_INTER_SWITCH_PORT) {
                         if (meta.modbus_function_code == MODBUS_FC_READ_COILS ||
-                            meta.modbus_function_code == MODBUS_FC_READ_DISCRETE_INPUTS) {
+                            meta.modbus_function_code == MODBUS_FC_READ_DISCRETE_INPUTS ||
+                            meta.modbus_function_code == MODBUS_FC_EXCEPTION_READ_COILS ||
+                            meta.modbus_function_code == MODBUS_FC_EXCEPTION_READ_DISCRETE_INPUTS) {
                             mirror_to_observer();
                         }
                     }

@@ -1,38 +1,29 @@
-// Copyright 2023 riccardo.bacca@studio.unibo.it
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package p4_aas.Submodels.NetworkInfrastructure;
 
+import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.eclipse.basyx.submodel.metamodel.map.Submodel;
 import org.eclipse.basyx.submodel.metamodel.map.submodelelement.dataelement.property.Property;
-
+import org.eclipse.basyx.submodel.metamodel.map.submodelelement.dataelement.property.valuetype.ValueType;
+import org.eclipse.basyx.submodel.metamodel.map.submodelelement.operation.Operation;
 import p4_aas.StaticProperties;
 import p4_aas.Submodels.AbstractSubmodel;
 
-import java.util.List;
-
 public class NetworkInfrastructureSubmodel extends AbstractSubmodel {
+
+    private final NetworkInfrastructureLambda lambdaProvider;
 
     public NetworkInfrastructureSubmodel() {
         super();
+        this.lambdaProvider = new NetworkInfrastructureLambda();
     }
 
     @Override
     public List<Submodel> createSubmodel() {
+
         Submodel topology = new Submodel();
         topology.setIdShort("NetworkTopology");
-
         topology.addSubmodelElement(new Property("Switches", "s1, s2"));
         topology.addSubmodelElement(new Property("Links", "modbusclient-s1, s1-s2, s2-modbusserver"));
         topology.addSubmodelElement(new Property("ManagementNetwork", "100.0.1.0/24"));
@@ -42,6 +33,42 @@ public class NetworkInfrastructureSubmodel extends AbstractSubmodel {
         topology.addSubmodelElement(new Property("ModbusPort", StaticProperties.MODBUS_PORT));
         topology.addSubmodelElement(new Property("AASNetworks", "L=100.0.2.4, D=100.0.1.5, A=195.11.14.100, C=200.1.1.100"));
 
-		return List.of(topology);
+      
+        Submodel modbusPolicy = new Submodel();
+        modbusPolicy.setIdShort("ModbusTrafficPolicy");
+        modbusPolicy.addSubmodelElement(new Property("Description", "Monitors Modbus FC1 and blocks when packet count exceeds threshold"));
+        modbusPolicy.addSubmodelElement(configureFc1RateLimit());
+        modbusPolicy.addSubmodelElement(getFc1PacketCount());
+        modbusPolicy.addSubmodelElement(resetFc1Counter());
+
+        return List.of(topology, modbusPolicy);
+    }
+
+    private Operation configureFc1RateLimit() {
+        Operation op = new Operation("ConfigureFc1RateLimit");
+        Map<String, ValueType> inputs = new LinkedHashMap<>();
+        inputs.put("Switch", ValueType.Integer);
+        inputs.put("Threshold", ValueType.Integer);
+        inputs.put("Enabled", ValueType.Integer);
+        op.setInputVariables(getUtils().getCustomInputVariables(inputs));
+        op.setOutputVariables(getUtils().getOperationVariables(1, "Output"));
+        op.setWrappedInvokable(lambdaProvider.configureFc1RateLimit());
+        return op;
+    }
+
+    private Operation getFc1PacketCount() {
+        Operation op = new Operation("GetFc1PacketCount");
+        op.setInputVariables(getUtils().getCustomInputVariables(Map.of("Switch", ValueType.Integer)));
+        op.setOutputVariables(getUtils().getOperationVariables(1, "Output"));
+        op.setWrappedInvokable(lambdaProvider.getFc1PacketCount());
+        return op;
+    }
+
+    private Operation resetFc1Counter() {
+        Operation op = new Operation("ResetFc1Counter");
+        op.setInputVariables(getUtils().getCustomInputVariables(Map.of("Switch", ValueType.Integer)));
+        op.setOutputVariables(getUtils().getOperationVariables(1, "Output"));
+        op.setWrappedInvokable(lambdaProvider.resetFc1Counter());
+        return op;
     }
 }

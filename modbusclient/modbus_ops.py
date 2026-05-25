@@ -158,6 +158,9 @@ async def run(args):
         )
         print(message)
         return exit_code
+    except Exception:
+        print("BLOCKED: FC1 packet count exceeded threshold")
+        return 1
     finally:
         client.close()
 

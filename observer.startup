@@ -1,0 +1,5 @@
+ip link set eth0 address 00:00:0a:00:03:01
+ip addr add 10.10.10.10/24 dev eth0
+ip link set eth0 promisc on
+echo "observer " >> /shared/startup.temp
+

@@ -11,3 +11,11 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+#Jar
+aas_project/P4_AAS.jar
+*.class
+
+# Temporary files
+shared/startup.temp
+shared/s1.log

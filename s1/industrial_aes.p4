@@ -105,6 +105,7 @@ struct tcp_metadata_t
 struct metadata {
     tcp_metadata_t tcp_metadata;
     bit<1> isSec;
+    bit<1> needCrypto; //ONLY FOR THIRD IMPLEMENTATION
 }
 
 header modbus_pdu_t {
@@ -137,7 +138,8 @@ parser MyParser(packet_in packet,
 
     state start {
         meta.isSec = 0;
-       transition parse_ethernet;
+        meta.needCrypto = 0; // ONLY FOR THIRD IMPLEMENTATION
+        transition parse_ethernet;
     }
 
      state parse_ethernet {
@@ -314,7 +316,8 @@ control MyIngress(inout headers hdr,
         hdr.ipv4_options.setInvalid();
     }
 
-    action toggle_cipher(egressSpec_t secure_port) {
+    /* FIRST IMPLEMENTATION */
+    /*action toggle_cipher(egressSpec_t secure_port) {
         if (standard_metadata.ingress_port == secure_port) {
             decipher();
         } else {
@@ -332,6 +335,52 @@ control MyIngress(inout headers hdr,
         }
         size = 10;
         default_action = no_cipher();
+    }*/
+
+
+    /* SECOND IMPLEMENTATION */
+    /*table modbus_sec {
+        key = {
+            hdr.modbus_pdu.function_code: exact;
+            standard_metadata.ingress_port : exact;
+        }
+        actions = {
+            no_cipher;
+            cipher;
+            decipher;
+        }
+        size = 10;
+        default_action = no_cipher();
+    }*/
+
+    /* THIRD IMPLEMENTATION */
+
+    action set_need_crypto() {
+        meta.needCrypto = 1;
+    }
+
+    table modbus_sec {
+        key = {
+            hdr.modbus_pdu.function_code: exact;
+        }
+        actions = {
+            no_cipher;
+            set_need_crypto;
+        }
+        size = 10;
+        default_action = no_cipher();
+    }
+
+    table modbus_port_sec {
+        key = {
+            standard_metadata.ingress_port : exact;
+        }
+        actions = {
+            cipher;
+            decipher;
+        }
+        size = 10;
+        default_action = cipher();
     }
 
     apply {
@@ -340,6 +389,10 @@ control MyIngress(inout headers hdr,
             if (hdr.tcp.isValid()){
                 if (hdr.modbus_tcp.isValid()){
                     modbus_sec.apply();
+                    // ONLY FOR THIRD IMPLEMENTATION
+                    if (meta.needCrypto == 1) {
+                        modbus_port_sec.apply();
+                    }
                 }
             }
         }

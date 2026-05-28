@@ -3,6 +3,7 @@ package p4_aas.Submodels.SwitchRuntime;
 import java.math.BigInteger;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.regex.*;
 
 import org.eclipse.basyx.submodel.metamodel.map.submodelelement.SubmodelElement;
 import org.eclipse.basyx.submodel.metamodel.map.submodelelement.dataelement.property.Property;
@@ -37,6 +38,46 @@ public class SwitchRuntimeLambda {
             }
             return output(switchCliClient.runCliCommand(getInt(args, "Switch"), "register_read " + register));
         };
+    }
+
+     public Function<Map<String, SubmodelElement>, SubmodelElement[]> readFunctionCodeRegisterBySwitch() {
+        return (args) -> {
+            int functionCode = getInt(args, "FunctionCode");
+            if (functionCode < 1 || functionCode > 6) {
+                return output("Invalid function code");
+            }
+            int switchNum = getInt(args, "Switch");
+
+            String registerName = "function_code_counters";
+            String outS1 = switchCliClient.runCliCommand(switchNum, "register_read " + registerName + " " + functionCode);
+            //String outS2 = switchCliClient.runCliCommand(2, "register_read " + registerName + " " + functionCode);
+            int count = Integer.parseInt(extractValue(outS1)); //+ Integer.parseInt(extractValue(outS2));
+            return output("" + count);
+        };
+    }
+
+     public Function<Map<String, SubmodelElement>, SubmodelElement[]> readFunctionCodeRegister() {
+        return (args) -> {
+            int functionCode = getInt(args, "FunctionCode");
+            if (functionCode < 1 || functionCode > 6) {
+                return output("Invalid function code");
+            }
+            String registerName = "function_code_counters";
+            String outS1 = switchCliClient.runCliCommand(1, "register_read " + registerName + " " + functionCode);
+            String outS2 = switchCliClient.runCliCommand(2, "register_read " + registerName + " " + functionCode);
+            int count = Integer.parseInt(extractValue(outS1)) + Integer.parseInt(extractValue(outS2));
+            return output("" + count);
+        };
+    }
+
+    private String extractValue(String output){
+        Pattern p = Pattern.compile("=\\s*(\\d+)");
+        Matcher m = p.matcher(output);
+        if (m.find()) {
+            return m.group(1);
+        } else {
+            return "Error in extracting count";
+        }
     }
 
     private SubmodelElement[] output(String value) {

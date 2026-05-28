@@ -26,6 +26,8 @@ public class SwitchRuntimeSubmodel extends AbstractSubmodel {
         switchRuntime.addSubmodelElement(showTables());
         switchRuntime.addSubmodelElement(dumpTable());
         switchRuntime.addSubmodelElement(readRegister());
+        switchRuntime.addSubmodelElement(readFunctionCodeRegisterBySwitch());
+        switchRuntime.addSubmodelElement(readFunctionCodeRegister());
 
         return List.of(switchRuntime);
     }
@@ -57,6 +59,27 @@ public class SwitchRuntimeSubmodel extends AbstractSubmodel {
         readRegister.setInputVariables(getUtils().getCustomInputVariables(inputVariables));
         readRegister.setOutputVariables(getUtils().getOperationVariables(1, "Output"));
         readRegister.setWrappedInvokable(lambdaProvider.readRegister());
+        return readRegister;
+    }
+
+    private Operation readFunctionCodeRegisterBySwitch() {
+        Operation readRegister = new Operation("readFunctionCodeRegisterBySwitch");
+        Map<String, ValueType> inputVariables = new LinkedHashMap<>();
+        inputVariables.put("FunctionCode", ValueType.Integer);
+        inputVariables.put("Switch", ValueType.Integer);
+        readRegister.setInputVariables(getUtils().getCustomInputVariables(inputVariables));
+        readRegister.setOutputVariables(getUtils().getOperationVariables(1, "Output"));
+        readRegister.setWrappedInvokable(lambdaProvider.readFunctionCodeRegisterBySwitch());
+        return readRegister;
+    }
+
+    private Operation readFunctionCodeRegister() {
+        Operation readRegister = new Operation("ReadFunctionCodeRegister");
+        Map<String, ValueType> inputVariables = new LinkedHashMap<>();
+        inputVariables.put("FunctionCode", ValueType.Integer);
+        readRegister.setInputVariables(getUtils().getCustomInputVariables(inputVariables));
+        readRegister.setOutputVariables(getUtils().getOperationVariables(1, "Output"));
+        readRegister.setWrappedInvokable(lambdaProvider.readFunctionCodeRegister());
         return readRegister;
     }
 }

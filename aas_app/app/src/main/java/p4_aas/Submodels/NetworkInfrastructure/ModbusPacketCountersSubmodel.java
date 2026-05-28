@@ -21,7 +21,7 @@ public class ModbusPacketCountersSubmodel extends AbstractSubmodel {
 
     @Override
     public List<Submodel> createSubmodel() {
-        Submodel counters = new Submodel();Doc
+        Submodel counters = new Submodel();
         counters.setIdShort("ModbusPacketCounters");
 
         counters.addSubmodelElement(new Property("CountedFunctionCodes", "1, 2, 3, 4, 5, 6"));

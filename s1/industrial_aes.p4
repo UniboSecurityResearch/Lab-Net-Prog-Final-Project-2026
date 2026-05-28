@@ -80,7 +80,7 @@ header modbus_tcp_t {
 }
 
 header payload_t {
-   varbit<2048> content;
+   varbit<2040> content; //Potrebbe essere 2040
 }
 
 header payload_encrypt_t {
@@ -105,6 +105,11 @@ struct tcp_metadata_t
 struct metadata {
     tcp_metadata_t tcp_metadata;
     bit<1> isSec;
+    bit<1> needCrypto; //ONLY FOR THIRD IMPLEMENTATION
+}
+
+header modbus_pdu_t {
+    bit<8> function_code;
 }
 
 struct headers {
@@ -114,6 +119,7 @@ struct headers {
     tcp_t tcp;
     tcp_options_t tcp_options;
     modbus_tcp_t modbus_tcp;
+    modbus_pdu_t modbus_pdu;
     payload_t payload;
     payload_encrypt_t payload_encrypt;
     payload_decrypt_t payload_decrypt;
@@ -132,7 +138,8 @@ parser MyParser(packet_in packet,
 
     state start {
         meta.isSec = 0;
-       transition parse_ethernet;
+        meta.needCrypto = 0; // ONLY FOR THIRD IMPLEMENTATION
+        transition parse_ethernet;
     }
 
      state parse_ethernet {
@@ -201,6 +208,7 @@ parser MyParser(packet_in packet,
     state extract_modbus_tcp {
         packet.extract(hdr.tcp_options);
         packet.extract(hdr.modbus_tcp);
+        packet.extract(hdr.modbus_pdu);
         transition select(hdr.modbus_tcp.length) {
            1: accept;
            _: parse_payload_modbus;
@@ -208,7 +216,7 @@ parser MyParser(packet_in packet,
     }
 
     state parse_payload_modbus {
-        bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 7) * 8);
+        bit<32> calculated_length = (bit<32>)((hdr.ipv4.totalLen - (((bit<16>)hdr.ipv4.ihl) * 4) - (((bit<16>)hdr.tcp.dataOffset) * 4) - 8) * 8);
         packet.extract(hdr.payload, (bit<32>)(calculated_length));
         transition accept;
     }
@@ -273,7 +281,7 @@ control MyIngress(inout headers hdr,
         keys.read(k6, 5);
         keys.read(k7, 6);
         keys.read(k8, 7);
-        bit<16> useful_length_fixed = hdr.modbus_tcp.length - 1;
+        bit<16> useful_length_fixed = hdr.modbus_tcp.length - 2;
         hdr.ipv4_options.savedLen = (bit<32>)useful_length_fixed;
         sha256_hash_1024(hdr.ipv4_options.sha, k1, k2, hdr.tcp.seqNo, hdr.payload.content, useful_length_fixed);
         hdr.ipv4.ihl = 14;
@@ -296,7 +304,7 @@ control MyIngress(inout headers hdr,
         keys.read(k6, 5);
         keys.read(k7, 6);
         keys.read(k8, 7);
-        bit<16> useful_length_fixed = hdr.modbus_tcp.length - 1;
+        bit<16> useful_length_fixed = hdr.modbus_tcp.length - 2;
         hdr.temp.setValid();
         Decrypt(hdr.payload.content, hdr.payload_decrypt.content, k1, k2, k3, k4, k5, k6, k7, k8, useful_length_fixed, hdr.ipv4_options.sha, hdr.tcp.seqNo, hdr.temp.shaCalculated);//check metadata
         hdr.ipv4.ihl = 5;
@@ -308,17 +316,71 @@ control MyIngress(inout headers hdr,
         hdr.ipv4_options.setInvalid();
     }
 
+    /* FIRST IMPLEMENTATION */
+    /*action toggle_cipher(egressSpec_t secure_port) {
+        if (standard_metadata.ingress_port == secure_port) {
+            decipher();
+        } else {
+            cipher();
+        }
+    }
+
     table modbus_sec {
         key = {
-            standard_metadata.egress_spec: exact;
+            hdr.modbus_pdu.function_code: exact;
+        }
+        actions = {
+            no_cipher;
+            toggle_cipher;
+        }
+        size = 10;
+        default_action = no_cipher();
+    }*/
+
+
+    /* SECOND IMPLEMENTATION */
+    /*table modbus_sec {
+        key = {
+            hdr.modbus_pdu.function_code: exact;
+            standard_metadata.ingress_port : exact;
         }
         actions = {
             no_cipher;
             cipher;
             decipher;
         }
-        size = 2;
+        size = 10;
         default_action = no_cipher();
+    }*/
+
+    /* THIRD IMPLEMENTATION */
+
+    action set_need_crypto() {
+        meta.needCrypto = 1;
+    }
+
+    table modbus_sec {
+        key = {
+            hdr.modbus_pdu.function_code: exact;
+        }
+        actions = {
+            no_cipher;
+            set_need_crypto;
+        }
+        size = 10;
+        default_action = no_cipher();
+    }
+
+    table modbus_port_sec {
+        key = {
+            standard_metadata.ingress_port : exact;
+        }
+        actions = {
+            cipher;
+            decipher;
+        }
+        size = 10;
+        default_action = cipher();
     }
 
     apply {
@@ -327,6 +389,10 @@ control MyIngress(inout headers hdr,
             if (hdr.tcp.isValid()){
                 if (hdr.modbus_tcp.isValid()){
                     modbus_sec.apply();
+                    // ONLY FOR THIRD IMPLEMENTATION
+                    if (meta.needCrypto == 1) {
+                        modbus_port_sec.apply();
+                    }
                 }
             }
         }
@@ -413,6 +479,7 @@ control MyDeparser(packet_out packet, in headers hdr) {
         packet.emit(hdr.tcp);
         packet.emit(hdr.tcp_options);
         packet.emit(hdr.modbus_tcp);
+        packet.emit(hdr.modbus_pdu);
         packet.emit(hdr.payload_encrypt);
         packet.emit(hdr.payload_decrypt);
         packet.emit(hdr.payload);

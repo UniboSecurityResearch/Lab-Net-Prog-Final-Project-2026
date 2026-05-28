@@ -26,6 +26,7 @@ public class SwitchRuntimeSubmodel extends AbstractSubmodel {
         switchRuntime.addSubmodelElement(showTables());
         switchRuntime.addSubmodelElement(dumpTable());
         switchRuntime.addSubmodelElement(readRegister());
+        switchRuntime.addSubmodelElement(toggleEncryption());
 
         return List.of(switchRuntime);
     }
@@ -58,5 +59,17 @@ public class SwitchRuntimeSubmodel extends AbstractSubmodel {
         readRegister.setOutputVariables(getUtils().getOperationVariables(1, "Output"));
         readRegister.setWrappedInvokable(lambdaProvider.readRegister());
         return readRegister;
+    }
+
+    private Operation toggleEncryption() {
+        Operation toggleEncryption = new Operation("ToggleEncryption");
+        Map<String, ValueType> inputVariables = new LinkedHashMap<>();
+        inputVariables.put("FunctionCode", ValueType.String);
+
+        toggleEncryption.setInputVariables(getUtils().getCustomInputVariables(inputVariables));
+        toggleEncryption.setOutputVariables(getUtils().getOperationVariables(1, "Output"));
+
+        toggleEncryption.setWrappedInvokable(lambdaProvider.toggleEncryptionRule());
+        return toggleEncryption;
     }
 }

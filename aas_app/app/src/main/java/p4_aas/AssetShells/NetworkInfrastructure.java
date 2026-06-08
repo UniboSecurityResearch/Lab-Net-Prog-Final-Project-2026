@@ -16,6 +16,7 @@ package p4_aas.AssetShells;
 
 import org.eclipse.basyx.aas.metamodel.api.parts.asset.AssetKind;
 
+import p4_aas.Submodels.ModbusMonitor.ModbusMonitorSubmodel;
 import p4_aas.Submodels.NetworkInfrastructure.NetworkInfrastructureSubmodel;
 
 /**
@@ -32,5 +33,6 @@ public class NetworkInfrastructure extends AbstractShell {
 
     private void createSubmodels() {
         this.submodels.addAll(new NetworkInfrastructureSubmodel().createSubmodel());
+        this.submodels.addAll(new ModbusMonitorSubmodel().createSubmodel());
     }
 }
